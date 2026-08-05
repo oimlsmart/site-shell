@@ -1,0 +1,40 @@
+name: ci
+
+# The shell's proof (TODO.FULL/02): the fixture site consumes the package
+# and builds — header/hero/footer compile into the output, both color
+# schemes render. A token or component change that breaks the chrome
+# fails here, not in a consumer.
+
+on:
+  push: { branches: [main] }
+  pull_request: {}
+  schedule: [cron: '9 4 * * 1']  # weekly, Monday 04:09 UTC (off-peak)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  fixture-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: test/fixture/package-lock.json }
+      - run: npm ci
+        working-directory: test/fixture
+      - run: npm run build
+        working-directory: test/fixture
+      - name: the chrome compiled into the output
+        working-directory: test/fixture
+        run: |
+          test -f dist/index.html
+          grep -q "site-nav" dist/index.html
+          grep -q "OIML SMART" dist/index.html
+          grep -q "color-brand" dist/_astro/*.css
+          echo "header + brand + tokens present in the built page"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fixture-dist
+          path: test/fixture/dist
+          retention-days: 7
