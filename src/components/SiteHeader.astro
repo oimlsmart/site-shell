@@ -1,0 +1,58 @@
+---
+/**
+ * The federation header (TODO.FULL/02) — the OIML SMART chrome every site
+ * renders: brand + the component nav + search + theme + sign-in. Props
+ * override the defaults so a minisite can pass its own brand suffix.
+ */
+import MobileNav from './MobileNav.vue'
+import NavDropdown from './NavDropdown.vue'
+import SearchBox from './SearchBox.vue'
+import ThemeToggle from './ThemeToggle.vue'
+import { NAV_ITEMS, isLinkActive } from '../data/nav-config'
+
+interface Props {
+  brandName?: string
+  logoLight?: string
+  logoDark?: string
+  signInHref?: string
+}
+const {
+  brandName = 'OIML SMART',
+  logoLight = 'https://www.oimlsmart.org/smart-logo-light.svg',
+  logoDark = 'https://www.oimlsmart.org/smart-logo-dark.svg',
+  signInHref = '/login/',
+} = Astro.props
+const path = Astro.url.pathname
+---
+
+<header class="site-nav sticky top-0 z-[100] bg-paper-soft dark:bg-paper-deep border-b border-rule">
+  <div class="max-w-7xl mx-auto px-6 flex items-center justify-between h-14">
+    <a href="https://www.oimlsmart.org/" class="nav-brand flex items-center gap-2 no-underline text-ink min-w-0">
+      <img src={logoLight} alt="" class="logo-light h-7 w-auto shrink-0" />
+      <img src={logoDark} alt="" class="logo-dark h-7 w-auto shrink-0" />
+      <span class="font-serif text-base font-semibold tracking-tight truncate">{brandName}</span>
+    </a>
+    <MobileNav client:load />
+    <nav class="nav-menu hidden md:flex items-center gap-5" id="nav-menu">
+      {NAV_ITEMS.map(item => (
+        item.type === 'dropdown' ? (
+          <NavDropdown client:load config={item.config} currentPath={path} />
+        ) : (
+          <a
+            href={item.href}
+            class={`text-sm font-medium text-ink-soft hover:text-accent transition-colors whitespace-nowrap ${isLinkActive(item.matchPrefix, path) ? 'text-accent font-semibold' : ''}`}
+          >{item.label}</a>
+        )
+      ))}
+      <SearchBox client:idle />
+      <ThemeToggle client:load />
+      <a href={signInHref} class="text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
+    </nav>
+  </div>
+</header>
+
+<style is:global>
+.logo-dark { display: none; }
+.dark .logo-light { display: none; }
+.dark .logo-dark { display: inline-block; }
+</style>

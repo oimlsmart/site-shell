@@ -1,0 +1,17 @@
+---
+import { Base, MinisiteNav, PageHero } from '@oimlsmart/site-shell'
+import '../styles/app.css'
+---
+
+<Base title="Fixture" description="The site-shell fixture build.">
+  <MinisiteNav sections={[
+    { label: 'About', href: '/' },
+    { label: 'Story', href: '/story' },
+    { label: 'Docs', href: '/docs' },
+    { label: 'Demo', href: '/demo' },
+  ]} base="/fixture" />
+  <main class="max-w-3xl mx-auto px-6 py-16">
+    <h1 class="font-serif text-4xl text-ink mb-4">The fixture renders the house shell.</h1>
+    <p class="text-ink-soft">Header, component-local nav, hero, and footer from the one package.</p>
+  </main>
+</Base>

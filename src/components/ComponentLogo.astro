@@ -1,0 +1,23 @@
+---
+/**
+ * ComponentLogo — one OIML SMART component's logo, light/dark swapped by
+ * the color scheme (the brand header's picture pattern). The assets live
+ * at /img/components/<name>-{light,dark}.svg (TODO.components/01).
+ */
+interface Props {
+  /** The component slug: smart-rec, smart-studio, cs-smart, smi, sst, cnml-box. */
+  name: string
+  /** One sentence stating what the logo shows (the style guide's rule). */
+  alt: string
+  /** Pixel width (height follows the viewBox ratio). */
+  width?: number
+  class?: string
+}
+
+const { name, alt, width = 112, class: className = '' } = Astro.props
+---
+
+<picture class={`component-logo ${className}`}>
+  <source srcset={`/img/components/${name}-dark.svg`} media="(prefers-color-scheme: dark)" />
+  <img src={`/img/components/${name}-light.svg`} alt={alt} width={width} loading="lazy" />
+</picture>
