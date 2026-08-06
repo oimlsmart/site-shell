@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./components/*": "./src/components/*",
     "./tokens.css": "./src/styles/tokens.css",
+    "./data/*": "./src/data/*",
     "./blueprint.css": "./src/styles/blueprint.css"
   },
   "files": ["src"],
