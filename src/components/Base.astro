@@ -21,8 +21,10 @@ interface Props {
   logoDark?: string
   /** The internal-draft banner — the top site's marking; minisites are public. */
   internal?: boolean
+  /** The html lang attribute — bilingual minisites pass their page locale. */
+  lang?: string
 }
-const { title, description, siteTitle = 'OIML SMART', brandName, logoLight, logoDark, internal = false } = Astro.props
+const { title, description, siteTitle = 'OIML SMART', brandName, logoLight, logoDark, internal = false, lang = 'en-US' } = Astro.props
 const pageTitle = title ? `${title} | ${siteTitle}` : siteTitle
 
 const FONT_URL =
@@ -35,7 +37,7 @@ const FONT_URL =
 ---
 
 <!DOCTYPE html>
-<html lang="en-US">
+<html lang={lang}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
