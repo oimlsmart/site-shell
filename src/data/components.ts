@@ -74,6 +74,8 @@ export const COMPONENTS: readonly SmartComponent[] = [
     href: '/vocab',
     desc: 'The governed terminology across publications',
     detail: 'The shared terminology. Every concept in a SMART Recommendation resolves to one governed term across publications.',
+    logo: 'vocab',
+    alt: 'The SMART Vocabulary logo.',
   },
   {
     name: 'SMART Resources',
