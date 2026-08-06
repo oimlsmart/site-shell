@@ -28,21 +28,32 @@ const OUT = process.argv[3] ?? join(PKG, 'dist-chrome')
 
 const page = readFileSync(join(FIXTURE_DIST, 'chrome-export/index.html'), 'utf8')
 
-function between(text, name) {
+function markerRange(text, name) {
   const start = text.indexOf(`<!-- chrome-${name}:start -->`)
   const end = text.indexOf(`<!-- chrome-${name}:end -->`)
   if (start < 0 || end < 0) throw new Error(`chrome-${name} markers not found`)
+  return [start, end]
+}
+
+function between(text, name) {
+  const [start, end] = markerRange(text, name)
   return text.slice(start, end).replace(`<!-- chrome-${name}:start -->`, '').trim()
 }
 
-// The head's stylesheet links plus every inline <script> in the
-// document: Astro inlines the island runtime, the hydration bootstrap,
-// and the theme init as attribute-less scripts. Component chunks stay
-// external (/_astro/*.js, copied below); their URLs are rewritten by
-// the consumer to its own base path.
+// The head's stylesheet links plus the inline <script> blocks that
+// belong to the document (the island runtime, the hydration bootstrap,
+// the theme init). Scripts that fall inside the header/footer marker
+// ranges stay with their fragments — collecting them here too would
+// duplicate the island runtime on injection.
+const headerRange = markerRange(page, 'header')
+const footerRange = markerRange(page, 'footer')
+const inside = (idx, [a, b]) => idx >= a && idx <= b
+
 const head = page.slice(page.indexOf('<head>'), page.indexOf('</head>'))
 const styleTags = [...head.matchAll(/<link[^>]*rel="stylesheet"[^>]*>/g)].map(m => m[0])
-const inlineScripts = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[0])
+const inlineScripts = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+  .filter(m => !inside(m.index, headerRange) && !inside(m.index, footerRange))
+  .map(m => m[0])
 if (inlineScripts.length === 0) throw new Error('no inline scripts found (island runtime missing)')
 
 const header = between(page, 'header')
