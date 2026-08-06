@@ -41,6 +41,9 @@ export const NAV_DROPDOWNS: readonly NavDropdownConfig[] = [
       // Internal routes — served by this site (the component minisites
       // live in the Components dropdown — one href, one home)
       { label: 'Document Library', href: '/library/', desc: 'Structured OIML document library' },
+      { label: 'Publications', href: '/publications/', desc: 'The full OIML publications archive' },
+      { label: 'Resolutions', href: '/resolutions/', desc: 'CIML resolutions and council decisions' },
+      { label: 'Certificate Corpus', href: '/certificates/', desc: 'Every OIML-CS certificate, browsable and digitalized' },
       { label: 'Ontology', href: '/ontology/', desc: 'Semantic model: classes, properties, individuals' },
       { label: 'Learn', href: '/learn/', desc: 'The layered curriculum, tiers 0–5' },
       { label: 'Developer Docs', href: '/docs/', desc: 'Guides, architecture, specifications' },
