@@ -1,0 +1,37 @@
+---
+/**
+ * The chrome-export page — renders ONLY the federation header and
+ * footer so scripts/export-chrome.mjs can extract them (with the head's
+ * asset tags) for injection into foreign-built sites (TODO.fix/07:
+ * full-document generators like the glossarist concept-browser and the
+ * Jekyll specs site that cannot mount the shell's Astro components).
+ * Not linked from anywhere; the fixture build emits it as
+ * /chrome-export/index.html.
+ */
+import SiteHeader from '@oimlsmart/site-shell/components/SiteHeader.astro'
+import SiteFooter from '@oimlsmart/site-shell/components/SiteFooter.astro'
+import '../styles/app.css'
+---
+
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <title>chrome-export</title>
+</head>
+<body>
+  <!-- chrome-header:start -->
+  <SiteHeader />
+  <!-- chrome-header:end -->
+  <!-- chrome-footer:start -->
+  <SiteFooter />
+  <!-- chrome-footer:end -->
+  <script is:inline>
+    var stored = localStorage.getItem('oiml-theme')
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (stored === 'dark' || (!stored && prefersDark)) {
+      document.documentElement.classList.add('dark')
+    }
+  </script>
+</body>
+</html>
