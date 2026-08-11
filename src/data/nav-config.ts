@@ -22,16 +22,29 @@ export interface NavStandaloneLink {
   readonly matchPrefix: string
 }
 
-import { COMPONENTS } from './components'
+import { COMPONENTS, SMART_COMPONENTS, SMARTPLUS_COMPONENTS } from './components'
+
+const componentLink = (c: typeof COMPONENTS[number]) => ({
+  label: c.name,
+  href: c.href,
+  desc: c.desc,
+})
 
 export const NAV_DROPDOWNS: readonly NavDropdownConfig[] = [
   {
-    id: 'platform',
-    label: 'Components',
+    id: 'smart',
+    label: 'SMART',
     variant: 'default',
-    // The eight components come from the ONE registry (components.ts) —
-    // the index's grid reads the same definition.
-    links: COMPONENTS.map(c => ({ label: c.name, href: c.href, desc: c.desc })),
+    // The SMART tier — published artifacts + IA/Type-approval level.
+    // Components come from the ONE registry (components.ts).
+    links: SMART_COMPONENTS.map(componentLink),
+  },
+  {
+    id: 'smartplus',
+    label: 'SMART+',
+    variant: 'default',
+    // The SMART+ tier — full Type-instance + measurement lifecycle.
+    links: SMARTPLUS_COMPONENTS.map(componentLink),
   },
   {
     id: 'resources',
@@ -82,7 +95,8 @@ export type NavItem =
   | { type: 'link'; label: string; href: string; matchPrefix: string }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'platform')! },
+  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'smart')! },
+  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'smartplus')! },
   { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'resources')! },
   { type: 'link', label: 'News', href: '/news/', matchPrefix: '/news' },
   { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'about')! },
