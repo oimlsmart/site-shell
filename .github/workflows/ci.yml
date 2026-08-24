@@ -33,6 +33,12 @@ jobs:
           grep -q "OIML SMART" dist/index.html
           grep -q "color-brand" dist/_astro/*.css
           echo "header + brand + tokens present in the built page"
+      - name: the mobile nav's logo rides the absolute brand URLs (2026-08-24's missing-logo regression)
+        working-directory: test/fixture
+        run: |
+          grep -q "https://www.oimlsmart.org/smart-logo-light.svg" dist/_astro/MobileNav.*.js
+          ! grep -q 'src:"/smart-logo' dist/_astro/MobileNav.*.js
+          echo "the mobile nav's logo carries the absolute defaults, never the relative paths"
       - uses: actions/upload-artifact@v4
         with:
           name: fixture-dist
