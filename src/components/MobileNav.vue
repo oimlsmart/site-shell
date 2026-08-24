@@ -2,6 +2,28 @@
 import { ref, onMounted } from 'vue'
 import { NAV_ITEMS } from '../data/nav-config'
 
+// The overlay's logo rides the SAME values the desktop header resolves
+// (SiteHeader passes its props down): absolute URLs with the oimlsmart.org
+// defaults — a relative /smart-logo-*.svg would 404 on any other host
+// (2026-08-24: the hamburger overlay's logo was missing on the identity
+// service for exactly that), and the light/dark display rules live in THIS
+// component's own styles (the header's scoped rules never reach a Vue
+// island).
+interface Props {
+  brandName?: string
+  logoLight?: string
+  logoDark?: string
+  homeHref?: string
+  signInHref?: string
+}
+const {
+  brandName = 'OIML SMART',
+  logoLight = 'https://www.oimlsmart.org/smart-logo-light.svg',
+  logoDark = 'https://www.oimlsmart.org/smart-logo-dark.svg',
+  homeHref = '/',
+  signInHref = '/login/',
+} = defineProps<Props>()
+
 const isOpen = ref(false)
 const expandedSection = ref<string | null>(null)
 const isDark = ref(false)
@@ -43,10 +65,10 @@ onMounted(() => {
       <div v-if="isOpen" class="fixed inset-0 z-[300] bg-paper flex flex-col md:hidden">
       <!-- Panel header with logo + close -->
       <div class="flex items-center justify-between h-14 px-6 border-b border-rule shrink-0">
-        <a href="/" class="flex items-center gap-2 no-underline text-ink" @click="toggleMenu">
-          <img src="/smart-logo-light.svg" alt="" class="logo-light h-7 w-auto shrink-0" />
-          <img src="/smart-logo-dark.svg" alt="" class="logo-dark h-7 w-auto shrink-0" />
-          <span class="font-serif text-base font-semibold tracking-tight">OIML SMART</span>
+        <a :href="homeHref" class="flex items-center gap-2 no-underline text-ink" @click="toggleMenu">
+          <img :src="logoLight" alt="" class="logo-light h-7 w-auto shrink-0" />
+          <img :src="logoDark" alt="" class="logo-dark h-7 w-auto shrink-0" />
+          <span class="font-serif text-base font-semibold tracking-tight">{{ brandName }}</span>
         </a>
         <button
           class="flex items-center justify-center w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent"
@@ -112,7 +134,7 @@ onMounted(() => {
             <span v-if="!isDark">☀</span>
             <span v-else>☾</span>
           </button>
-          <a href="/login/" class="text-sm font-semibold text-accent">Sign in ↗</a>
+          <a :href="signInHref" class="text-sm font-semibold text-accent">Sign in ↗</a>
         </div>
       </div>
     </div>
@@ -120,6 +142,12 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* The overlay's own light/dark logo rules — SiteHeader's scoped styles
+   never reach a Vue island, so this component carries its own. */
+.logo-dark { display: none; }
+:global(.dark) .logo-dark { display: block; }
+:global(.dark) .logo-light { display: none; }
+
 .mobile-nav-enter-active,
 .mobile-nav-leave-active {
   transition: transform 0.25s ease;

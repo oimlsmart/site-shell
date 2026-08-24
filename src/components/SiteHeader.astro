@@ -32,7 +32,7 @@ const path = Astro.url.pathname
       <img src={logoDark} alt="" class="logo-dark h-7 w-auto shrink-0" />
       <span class="font-serif text-base font-semibold tracking-tight truncate">{brandName}</span>
     </a>
-    <MobileNav client:load />
+    <MobileNav client:load brandName={brandName} logoLight={logoLight} logoDark={logoDark} signInHref={signInHref} />
     <nav class="nav-menu hidden md:flex items-center gap-5" id="nav-menu">
       {NAV_ITEMS.map(item => (
         item.type === 'dropdown' ? (
