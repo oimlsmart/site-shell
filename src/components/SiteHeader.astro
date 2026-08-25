@@ -46,7 +46,9 @@ const path = Astro.url.pathname
       ))}
       <SearchBox client:idle />
       <ThemeToggle client:load />
-      <a href={signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
+      <slot name="signin">
+        <a href={signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
+      </slot>
     </nav>
   </div>
 </header>
