@@ -32,7 +32,8 @@ jobs:
           grep -q "site-nav" dist/index.html
           grep -q "OIML SMART" dist/index.html
           grep -q "color-brand" dist/_astro/*.css
-          echo "header + brand + tokens present in the built page"
+          grep -q 'href="/auth/login"' dist/index.html
+          echo "header + brand + tokens + the threaded signInHref present"
       - name: the mobile nav's logo rides the absolute brand URLs (2026-08-24's missing-logo regression)
         working-directory: test/fixture
         run: |
