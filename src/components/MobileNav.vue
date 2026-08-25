@@ -134,7 +134,7 @@ onMounted(() => {
             <span v-if="!isDark">☀</span>
             <span v-else>☾</span>
           </button>
-          <a :href="signInHref" class="text-sm font-semibold text-accent">Sign in ↗</a>
+          <a :href="signInHref" class="shell-signin text-sm font-semibold text-accent">Sign in ↗</a>
         </div>
       </div>
     </div>
