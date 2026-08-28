@@ -19,7 +19,8 @@
     "./blueprint.css": "./src/styles/blueprint.css"
   },
   "files": [
-    "src"
+    "src",
+    "scripts"
   ],
   "publishConfig": {
     "access": "public"

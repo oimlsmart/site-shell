@@ -1,0 +1,21 @@
+---
+/**
+ * The docs-layout fixture page — mounts DocsSidebar against the minimal
+ * docs collection, giving the docs layout (and docs-sort) the test
+ * surface every other export already has.
+ */
+import { Base, DocsSidebar } from '@oimlsmart/site-shell'
+import '../styles/app.css'
+---
+
+<Base title="Docs" description="The shell's docs layout, gated.">
+  <div class="max-w-7xl mx-auto px-6 flex gap-10 py-10">
+    <aside class="w-56 shrink-0">
+      <DocsSidebar />
+    </aside>
+    <main class="flex-1 min-w-0">
+      <h1 class="font-serif text-3xl text-ink mb-4">The docs layout</h1>
+      <p class="text-ink-soft">The sidebar consumes the docs collection, ordered by each entry's <code>order</code>.</p>
+    </main>
+  </div>
+</Base>

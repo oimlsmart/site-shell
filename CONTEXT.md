@@ -13,11 +13,18 @@ these are the domain names.
   injects the exported chrome artifact instead (see Chrome export).
 - **Brand** — the identity bundle: wordmark, light/dark logos, home
   link, sign-in target. One home: `resolveBrand()` in
-  `src/data/site-meta.ts`. Components never carry brand literals.
+  `src/data/site-meta.ts`; the raw constants (site URL, legal pages,
+  partners) live in the node-safe leaf `src/data/site.mjs` so the gate
+  asserts the same values the footer renders. Components never carry
+  brand or site literals.
 - **Theme runtime** — `src/composables/useTheme.ts`. The only owner of
   `.dark` on `<html>`: the storage key, the FOUC bootstrap string, and
   the toggle composable. The theme contract (README) bans everything
   else from touching theme state.
+- **Docs collection** — the consumer's `docs` content collection that
+  `DocsSidebar` mounts, ordered per entry by `docs-sort`. The fixture
+  carries a minimal one so the docs layout is gated like every other
+  export.
 - **The gate** — `npm run gate` + `npm run gate:render`: the proof that
   the chrome compiles in and lays out in both color schemes. CI and the
   release workflow run the same two commands; nothing publishes without

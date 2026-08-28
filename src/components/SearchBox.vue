@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
+// pagefind's base — GitHub Pages project sites serve the index under
+// /<repo>/pagefind/, so the root-relative default is overridable.
+interface Props {
+  base?: string
+}
+const { base = '/pagefind' } = defineProps<Props>()
+
 const loaded = ref(false)
 const results = ref<any[]>([])
 const query = ref('')
@@ -14,12 +21,12 @@ async function ensureLoaded() {
 
   const css = document.createElement('link')
   css.rel = 'stylesheet'
-  css.href = '/pagefind/pagefind-ui.css'
+  css.href = `${base}/pagefind-ui.css`
   document.head.appendChild(css)
 
   await new Promise((resolve) => {
     const s = document.createElement('script')
-    s.src = '/pagefind/pagefind-ui.js'
+    s.src = `${base}/pagefind-ui.js`
     s.onload = resolve
     document.head.appendChild(s)
   })

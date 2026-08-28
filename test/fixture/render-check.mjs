@@ -15,7 +15,7 @@ import { THEME_STORAGE_KEY, THEME_CLASS } from '@oimlsmart/site-shell/data/theme
 
 const PORT = 4173
 const BASE = `http://127.0.0.1:${PORT}`
-const PAGES = ['/', '/showcase']
+const PAGES = ['/', '/showcase', '/docs']
 
 function waitForPort(port, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {

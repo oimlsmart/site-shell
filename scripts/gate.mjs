@@ -10,6 +10,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { runThemeGuard } from './guard.mjs'
+import { LEGAL } from '../src/data/site.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'test/fixture/dist')
@@ -25,6 +26,7 @@ const read = (...p) => readFileSync(join(DIST, ...p), 'utf8')
 
 const indexHtml = read('index.html')
 const showcaseHtml = read('showcase', 'index.html')
+const docsHtml = read('docs', 'index.html')
 const assetNames = readdirSync(join(DIST, '_astro'))
 const css = assetNames.filter(f => f.endsWith('.css')).map(f => read('_astro', f)).join('\n')
 const mobileNav = assetNames.filter(f => /^MobileNav\..*\.js$/.test(f)).map(f => read('_astro', f)).join('\n')
@@ -33,13 +35,19 @@ check(indexHtml.includes('site-nav'), 'the federation header (site-nav) compiled
 check(indexHtml.includes('OIML SMART'), 'the brand compiled into the page')
 check(css.includes('color-brand'), 'the design tokens compiled into the output')
 check(indexHtml.includes('href="/auth/login"'), 'the threaded signInHref compiled into the page')
-check(indexHtml.includes('href="https://www.oimlsmart.org/privacy"'), 'the footer Privacy legal link compiled into the page (absolute canonical URL)')
-check(indexHtml.includes('href="https://www.oimlsmart.org/terms"'), 'the footer Terms legal link compiled into the page (absolute canonical URL)')
+check(indexHtml.includes(`href="${LEGAL.privacy}"`), 'the footer Privacy legal link compiled into the page (from the site constants leaf)')
+check(indexHtml.includes(`href="${LEGAL.terms}"`), 'the footer Terms legal link compiled into the page (from the site constants leaf)')
 check(/MobileNav\.[A-Za-z0-9_-]+\.js/.test(indexHtml) && indexHtml.includes('https://www.oimlsmart.org/smart-logo-light.svg'), 'the mobile nav island rides the absolute brand logo URLs (serialized props)')
 check(!/src:"\/smart-logo/.test(mobileNav), 'the mobile nav carries no relative logo paths (the 2026-08-24 regression)')
 check(showcaseHtml.includes('tier-toggle'), 'TierToggle mounted on the showcase page')
 check(showcaseHtml.includes('component-logo'), 'ComponentLogo mounted on the showcase page')
 check(showcaseHtml.includes('DRAFT'), 'the internal banner mounted on the showcase page (<Base internal>)')
+{
+  const first = docsHtml.indexOf('guides/first')
+  const second = docsHtml.indexOf('guides/second')
+  const third = docsHtml.indexOf('guides/third')
+  check(first >= 0 && second > first && third > second, 'DocsSidebar mounts the docs collection with docs-sort ordering applied')
+}
 
 failures.push(...runThemeGuard(DIST))
 
