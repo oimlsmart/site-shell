@@ -16,6 +16,13 @@ name: Release
 # enrollment on npmjs.com (runbook: docs/deployment/npm-releases.md in
 # the smart repo), the job builds the fixture against the tag, prints
 # the note, and skips the publish instead of failing red.
+#
+# NOTE node 24 is load-bearing, not cosmetic parity with ci.yml's 22:
+# trusted publishing's OIDC→publish-credential exchange needs npm ≥ 11,
+# which ships with node 24. On node 22 (npm 10) the publish falls back
+# to anonymous and the registry answers 404 — provenance still signs,
+# so nothing else looks wrong (that is exactly how v0.1.3's first
+# release attempt failed).
 
 on:
   push:
@@ -31,10 +38,10 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: npm
           cache-dependency-path: test/fixture/package-lock.json
