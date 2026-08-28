@@ -33,6 +33,8 @@ check(indexHtml.includes('site-nav'), 'the federation header (site-nav) compiled
 check(indexHtml.includes('OIML SMART'), 'the brand compiled into the page')
 check(css.includes('color-brand'), 'the design tokens compiled into the output')
 check(indexHtml.includes('href="/auth/login"'), 'the threaded signInHref compiled into the page')
+check(indexHtml.includes('href="https://www.oimlsmart.org/privacy"'), 'the footer Privacy legal link compiled into the page (absolute canonical URL)')
+check(indexHtml.includes('href="https://www.oimlsmart.org/terms"'), 'the footer Terms legal link compiled into the page (absolute canonical URL)')
 check(/MobileNav\.[A-Za-z0-9_-]+\.js/.test(indexHtml) && indexHtml.includes('https://www.oimlsmart.org/smart-logo-light.svg'), 'the mobile nav island rides the absolute brand logo URLs (serialized props)')
 check(!/src:"\/smart-logo/.test(mobileNav), 'the mobile nav carries no relative logo paths (the 2026-08-24 regression)')
 check(showcaseHtml.includes('tier-toggle'), 'TierToggle mounted on the showcase page')
