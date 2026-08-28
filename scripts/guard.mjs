@@ -11,13 +11,14 @@
 //    selector and emits a bare global rule — exactly failure mode 1, with
 //    no compile error. Astro components are exempt: Astro's scoped styles
 //    do support :global().
+//
+// Exported for scripts/gate.mjs; runs as a CLI standalone.
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { join, relative } from 'node:path'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const THEME_CLASSES = new Set(['.dark', 'html.dark'])
-const failures = []
 
 function walk(dir, predicate, out = []) {
   for (const name of readdirSync(dir, { withFileTypes: true })) {
@@ -104,7 +105,7 @@ function splitSelectors(list) {
 // display:none, but never a custom property like --foo-display:none
 const HIDES = /(^|[^-\w])display\s*:\s*none\b/
 
-function checkCss(css, where) {
+function checkCss(css, where, failures) {
   forEachRule(stripComments(css), (selector, decls) => {
     if (!HIDES.test(decls)) return
     for (const s of splitSelectors(selector)) {
@@ -114,40 +115,49 @@ function checkCss(css, where) {
   })
 }
 
-// --- leg 1: :global( in .vue <style scoped>
-for (const file of walk(join(ROOT, 'src'), (f) => f.endsWith('.vue'))) {
-  const text = readFileSync(file, 'utf8')
-  for (const block of styleBlocks(text)) {
-    if (!/\bscoped\b/.test(block.attrs)) continue
-    const clean = stripComments(block.css)
-    const m = /:global\s*\(/.exec(clean)
-    if (m)
-      failures.push(`${relative(ROOT, file)}:${lineAt(text, block.index)}: :global( inside <style scoped> — Vue compiles prefix-position :global into a bare global selector with no error. Move the rule to an unscoped <style> block.`)
+export function runThemeGuard(distDir) {
+  const failures = []
+
+  // leg 1: :global( in .vue <style scoped>
+  for (const file of walk(join(ROOT, 'src'), (f) => f.endsWith('.vue'))) {
+    const text = readFileSync(file, 'utf8')
+    for (const block of styleBlocks(text)) {
+      if (!/\bscoped\b/.test(block.attrs)) continue
+      const clean = stripComments(block.css)
+      if (/:global\s*\(/.test(clean))
+        failures.push(`${relative(ROOT, file)}:${lineAt(text, block.index)}: :global( inside <style scoped> — Vue compiles prefix-position :global into a bare global selector with no error. Move the rule to an unscoped <style> block.`)
+    }
   }
+
+  // leg 2: bare-theme display:none in component style blocks + stylesheets
+  for (const file of walk(join(ROOT, 'src'), (f) => /\.(vue|astro|css)$/.test(f))) {
+    const text = readFileSync(file, 'utf8')
+    const rel = relative(ROOT, file)
+    if (file.endsWith('.css')) checkCss(text, rel, failures)
+    for (const block of styleBlocks(text)) checkCss(block.css, `${rel}:<style${block.attrs.trim() ? ' ' + block.attrs.trim() : ''}>`, failures)
+  }
+
+  // leg 3: the built CSS (run after the fixture build)
+  if (distDir && existsSync(distDir)) {
+    for (const file of walk(distDir, (f) => f.endsWith('.css')))
+      checkCss(readFileSync(file, 'utf8'), relative(ROOT, file), failures)
+  } else if (distDir) {
+    console.log(`theme guard: ${distDir} not built yet — checking sources only`)
+  }
+
+  return failures
 }
 
-// --- leg 2: bare-theme display:none in component style blocks + stylesheets
-for (const file of walk(join(ROOT, 'src'), (f) => /\.(vue|astro|css)$/.test(f))) {
-  const text = readFileSync(file, 'utf8')
-  const rel = relative(ROOT, file)
-  if (file.endsWith('.css')) checkCss(text, rel)
-  for (const block of styleBlocks(text)) checkCss(block.css, `${rel}:<style${block.attrs.trim() ? ' ' + block.attrs.trim() : ''}>`)
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (invokedDirectly) {
+  const args = process.argv.slice(2)
+  const distFlag = args.indexOf('--dist')
+  const distDir = distFlag !== -1 ? args[distFlag + 1] : join('test', 'fixture', 'dist')
+  const failures = runThemeGuard(distDir)
+  if (failures.length) {
+    console.error(`theme guard FAILED (${failures.length}):`)
+    for (const f of failures) console.error(`  - ${f}`)
+    process.exit(1)
+  }
+  console.log('theme guard: clean — no bare theme-class display rules, no :global( in Vue scoped styles')
 }
-
-// --- leg 3: the built CSS (run after the fixture build)
-const args = process.argv.slice(2)
-const distFlag = args.indexOf('--dist')
-const distDir = distFlag !== -1 ? args[distFlag + 1] : join('test', 'fixture', 'dist')
-if (existsSync(distDir)) {
-  for (const file of walk(distDir, (f) => f.endsWith('.css')))
-    checkCss(readFileSync(file, 'utf8'), relative(ROOT, file))
-} else {
-  console.log(`theme guard: ${distDir} not built yet — checking sources only`)
-}
-
-if (failures.length) {
-  console.error(`theme guard FAILED (${failures.length}):`)
-  for (const f of failures) console.error(`  - ${f}`)
-  process.exit(1)
-}
-console.log('theme guard: clean — no bare theme-class display rules, no :global( in Vue scoped styles')

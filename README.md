@@ -2,21 +2,29 @@
 
 The OIML SMART house shell — the one SSOT for the chrome of every OIML
 SMART site: the federation header, the component-local minisite nav, the
-logo hero, the docs layout, the footer, and the design tokens.
+logo hero, the docs layout, the footer, and the design tokens. Astro
+sites mount the components; sites that cannot mount Astro inject the
+exported chrome artifact. Domain vocabulary lives in `CONTEXT.md`.
 
-## Consume
+## Consume (an Astro site)
 
 ```sh
 npm i @oimlsmart/site-shell
 ```
 
+The package ships raw source — peer dependencies are `astro >= 5` and
+`vue >= 3.5`; your bundler compiles the components.
+
 ```css
-/* src/styles/app.css — the consumer imports tailwind first, then the
-   tokens, then @sources the package so the shell's utilities compile. */
+/* src/styles/app.css — import tailwind first, then the tokens, then
+   @source the package so the shell's utilities compile into your CSS. */
 @import "tailwindcss";
 @import "@oimlsmart/site-shell/tokens.css";
 @source "../../node_modules/@oimlsmart/site-shell/src/**/*.{astro,vue}";
 ```
+
+Optional: `@import "@oimlsmart/site-shell/blueprint.css"` for the
+editorial page scaffolding (grid, prose, hero polish).
 
 ```astro
 ---
@@ -24,28 +32,78 @@ import { Base, MinisiteNav, PageHero } from '@oimlsmart/site-shell'
 import '../styles/app.css'
 ---
 
-<Base title="…" description="…">
+<Base title="…" description="…" signInHref="/auth/login">
   <MinisiteNav sections={[{ label: 'About', href: '/' }, …]} base="/recs" />
-  …
+  <PageHero title="…" lede="…" logo={{ name: 'smart-rec', alt: '…' }} />
+  <slot />  <!-- your page -->
 </Base>
 ```
 
-## Rules
+### What the package exports
 
-- Logos are NOT shipped: consumers reference the canonical URLs under
-  `https://www.oimlsmart.org/img/components/` (the sync-branding guard
-  covers drift).
-- Colors and type live ONLY in `src/styles/tokens.css` (+ blueprint.css).
-  A token change ships as one package release consumed by every site.
-- The internal-draft banner is opt-in (`<Base internal>`) — minisites are
-  public.
+| subpath | contents |
+|---|---|
+| `.` (root) | `Base`, `SiteHeader`, `SiteFooter`, `MinisiteNav`, `PageHero`, `DocsSidebar`, `InternalBanner`, `TierToggle`, `ComponentLogo`, the theme runtime (`useTheme`, `THEME_BOOTSTRAP`, …), the brand resolver (`resolveBrand`, `SITE`) |
+| `./components/*` | every component directly, for the subpaths the root entry doesn't name |
+| `./tokens.css` / `./blueprint.css` | the design tokens / the editorial scaffolding |
+| `./data/*` | the component registry, the nav config, site metadata — importable so federation sites re-export the ONE registry instead of carrying drift-prone copies |
+
+### Brand overrides
+
+Brand identity resolves in exactly one place. Pass any of
+`brandName`, `logoLight`, `logoDark`, `homeHref`, `signInHref` to
+`Base` and it threads through the header, the mobile overlay, and the
+footer together — never re-specify defaults per component:
+
+```astro
+<Base title="Certificates" description="…" brandName="OIML CS" signInHref="/auth/login" />
+```
+
+### Slots
+
+`Base` exposes `head` (extra `<head>` tags) and `signin` (replace the
+header's default sign-in link). `MinisiteNav` exposes a right-aligned
+slot for nav-local utilities.
+
+### Tiered pages (SMART / SMART+)
+
+```astro
+<TierToggle />
+<div data-tier="smart">…type-approval scope…</div>
+<div data-tier="smartplus">…full instance lifecycle…</div>
+```
+
+### Theme-aware scripts
+
+If your page needs the current scheme, use the theme runtime — never
+read `localStorage` or `.dark` yourself:
+
+```ts
+import { useTheme, isDarkPreferred } from '@oimlsmart/site-shell'
+```
+
+## Consume (a foreign-built site)
+
+Sites that cannot mount Astro components (full-document generators)
+inject the exported chrome instead. Build the fixture, export, apply:
+
+```sh
+node scripts/export-chrome.mjs   # fixture dist → dist-chrome/ (header.html, footer.html, head.html, _astro/**, manifest.json)
+node scripts/apply-chrome.mjs --dist <your-dist> [--base /your-base] [--skip <prefix>]
+```
+
+`apply-chrome.mjs` rewrites the asset URLs to your base and injects the
+fragments into your built pages; `--skip` leaves matched paths
+unchromed. The marker contract between the export page and the exporter
+lives in `src/data/chrome.mjs`.
 
 ## Theme contract
 
-`.dark` is reserved. `Base.astro`'s FOUC script and `useTheme` put
-`class="dark"` on `<html>` — never on a child, never as a free-floating
-class on an arbitrary element. Components that need a light/dark style
-difference key off the ancestor:
+`.dark` is reserved. `Base.astro`'s FOUC bootstrap (THEME_BOOTSTRAP from
+the theme runtime) and `useTheme` put `class="dark"` on `<html>` —
+never on a child, never as a free-floating class on an arbitrary
+element. Components that need a light/dark difference key off the
+ancestor:
 
 ```css
 /* correct — the theme class is on <html>, so the selector reaches it */
@@ -53,7 +111,6 @@ html.dark .my-thing { … }
 
 /* wrong — a bare .dark rule applies TO the <html> element itself */
 .dark { display: none; }          /* blanks the whole page */
-.dark .my-thing { … }             /* works, but prefers html.dark for clarity */
 ```
 
 In a Vue SFC, never write `:global(.dark)` (or any `:global(`) inside a
@@ -64,7 +121,45 @@ rule — exactly the page-blanking bug that shipped in 0.1.2. Global rules
 belong in a separate unscoped `<style>` block. (Astro's scoped styles
 do support `:global()`; the ban is Vue-only.)
 
-The fixture gate enforces this: `scripts/guard.mjs` rejects bare
-theme-class `display:none` rules and Vue `:global(` in scoped styles,
-and the Playwright render check loads the fixture in both schemes and
-asserts the page actually lays out (a blank page still greps clean).
+## Rules
+
+- Logos are NOT shipped: consumers reference the canonical URLs under
+  `https://www.oimlsmart.org/img/components/` (the sync-branding guard
+  covers drift). `resolveBrand`/`COMPONENT_ASSET_BASE` are the only
+  homes for those URLs.
+- Colors and type live ONLY in `src/styles/tokens.css` (+ blueprint.css).
+  A token change ships as one package release consumed by every site.
+- The internal-draft banner is opt-in (`<Base internal>`) — minisites are
+  public.
+
+## The gate
+
+`npm run gate` and `npm run gate:render` (after building the fixture in
+`test/fixture/`) are the package's proof, and exactly what CI and the
+release workflow run — one definition, no drift:
+
+- **gate** — the chrome compiled into the built fixture (header, brand,
+  tokens, threaded props), the showcase components mounted, and the
+  theme guard clean: no bare `.dark{display:none}` rules anywhere, no
+  `:global(` in Vue scoped styles.
+- **gate:render** — Playwright loads each fixture page in **both** color
+  schemes and asserts layout geometry (not computed colors — a blank
+  page still greps clean and passes color probes), plus screenshots as
+  artifacts.
+
+## Releases — trusted publishing only
+
+npm publishes happen **only** through GitHub Actions OIDC trusted
+publishing; no npm token exists anywhere and `npm publish` is never run
+locally. A release is:
+
+1. changes land on `main` via PR (the gate runs on every PR);
+2. the version bump PR merges (`package.json` version = the release);
+3. someone pushes the matching tag — `git tag v0.1.3 && git push origin v0.1.3`;
+4. `release.yml` verifies tag ↔ version, runs the same gate, then
+   publishes with a provenance attestation bound to this repo;
+5. verify: `npm view @oimlsmart/site-shell version`.
+
+The tag push is the release trigger — treat it accordingly. Superseded
+broken versions are deprecated on the registry (`npm deprecate
+@oimlsmart/site-shell@0.1.2 "…"`) once the fix is live, never yanked.

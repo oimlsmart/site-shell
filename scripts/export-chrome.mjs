@@ -21,6 +21,7 @@ import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync } from 'node
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
+import { CHROME_MARKERS } from '../src/data/chrome.mjs'
 
 const PKG = join(dirname(fileURLToPath(import.meta.url)), '..')
 const FIXTURE_DIST = process.argv[2] ?? join(PKG, 'test/fixture/dist')
@@ -29,15 +30,16 @@ const OUT = process.argv[3] ?? join(PKG, 'dist-chrome')
 const page = readFileSync(join(FIXTURE_DIST, 'chrome-export/index.html'), 'utf8')
 
 function markerRange(text, name) {
-  const start = text.indexOf(`<!-- chrome-${name}:start -->`)
-  const end = text.indexOf(`<!-- chrome-${name}:end -->`)
+  const marker = CHROME_MARKERS[name]
+  const start = text.indexOf(`<!-- ${marker.start} -->`)
+  const end = text.indexOf(`<!-- ${marker.end} -->`)
   if (start < 0 || end < 0) throw new Error(`chrome-${name} markers not found`)
   return [start, end]
 }
 
 function between(text, name) {
   const [start, end] = markerRange(text, name)
-  return text.slice(start, end).replace(`<!-- chrome-${name}:start -->`, '').trim()
+  return text.slice(start, end).replace(`<!-- ${CHROME_MARKERS[name].start} -->`, '').trim()
 }
 
 // The head's stylesheet links plus the inline <script> blocks that

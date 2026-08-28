@@ -1,0 +1,35 @@
+---
+/**
+ * The showcase page — mounts the shell's less-travelled components
+ * (internal banner, tier toggle, component logos) so the gate covers
+ * them too, not just the header/footer pair. Doubles as living
+ * documentation of the tier pattern.
+ */
+import { Base, TierToggle } from '@oimlsmart/site-shell'
+import ComponentLogo from '@oimlsmart/site-shell/components/ComponentLogo.astro'
+import { COMPONENTS } from '@oimlsmart/site-shell/data/components'
+import '../styles/app.css'
+
+const logos = COMPONENTS.filter(c => c.logo).slice(0, 4)
+---
+
+<Base internal title="Showcase" description="The shell's less-travelled components, gated.">
+  <main class="max-w-3xl mx-auto px-6 py-16 space-y-10">
+    <section>
+      <h1 class="font-serif text-3xl text-ink mb-4">The component showcase</h1>
+      <p class="text-ink-soft mb-6">TierToggle swaps the two blocks below; ComponentLogo swaps with the html.dark class.</p>
+      <TierToggle />
+      <div data-tier="smart" class="border border-rule rounded p-4 mb-3">
+        <p class="text-sm text-ink-soft">A SMART-tier block — published artifacts, type-approval level.</p>
+      </div>
+      <div data-tier="smartplus" class="border border-rule rounded p-4">
+        <p class="text-sm text-ink-soft">A SMART+-tier block — the full type-instance and measurement lifecycle.</p>
+      </div>
+    </section>
+    <section class="flex flex-wrap items-center gap-6">
+      {logos.map(c => (
+        <ComponentLogo name={c.logo!} alt={c.alt ?? c.name} width={96} />
+      ))}
+    </section>
+  </main>
+</Base>
