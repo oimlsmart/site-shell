@@ -1,11 +1,9 @@
 name: ci
 
-# The shell's proof (TODO.FULL/02): the fixture site consumes the package
-# and builds — header/hero/footer compile into the output, both color
-# schemes render. A token or component change that breaks the chrome
-# fails here, not in a consumer. The 2026-08-28 blanking (a bare
-# .dark{display:none} rule) is why the gate also runs a layout check in
-# both schemes and a theme-class guard over the built CSS.
+# The shell's proof: the fixture site consumes the package and builds —
+# the gate (npm run gate + gate:render) proves the chrome compiles in,
+# both color schemes lay out, and no theme-class rule blanks a scheme.
+# The same gate runs in release.yml — one definition, no drift.
 
 on:
   push: { branches: [main] }
@@ -27,29 +25,13 @@ jobs:
         working-directory: test/fixture
       - run: npm run build
         working-directory: test/fixture
-      - name: the chrome compiled into the output
-        working-directory: test/fixture
-        run: |
-          test -f dist/index.html
-          grep -q "site-nav" dist/index.html
-          grep -q "OIML SMART" dist/index.html
-          grep -q "color-brand" dist/_astro/*.css
-          grep -q 'href="/auth/login"' dist/index.html
-          echo "header + brand + tokens + the threaded signInHref present"
-      - name: the mobile nav's logo rides the absolute brand URLs (2026-08-24's missing-logo regression)
-        working-directory: test/fixture
-        run: |
-          grep -q "https://www.oimlsmart.org/smart-logo-light.svg" dist/_astro/MobileNav.*.js
-          ! grep -q 'src:"/smart-logo' dist/_astro/MobileNav.*.js
-          echo "the mobile nav's logo carries the absolute defaults, never the relative paths"
-      - name: theme guard (no bare .dark{display:none}, no :global( in Vue scoped styles)
-        run: node scripts/guard.mjs --dist test/fixture/dist
-      - name: install chromium for the render check
+      - name: The gate — compile checks + theme guard
+        run: npm run gate
+      - name: Install chromium for the render leg
         working-directory: test/fixture
         run: npx playwright install --with-deps chromium
-      - name: both color schemes lay out (the 2026-08-28 blanking regression)
-        working-directory: test/fixture
-        run: npm run check:render
+      - name: The gate — render leg, both color schemes
+        run: npm run gate:render
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -58,3 +40,4 @@ jobs:
             test/fixture/dist
             test/fixture/artifacts
           retention-days: 7
+          if-no-files-found: ignore
