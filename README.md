@@ -92,10 +92,22 @@ node scripts/export-chrome.mjs   # fixture dist → dist-chrome/ (header.html, f
 node scripts/apply-chrome.mjs --dist <your-dist> [--base /your-base] [--skip <prefix>]
 ```
 
-`apply-chrome.mjs` rewrites the asset URLs to your base and injects the
-fragments into your built pages; `--skip` leaves matched paths
-unchromed. The marker contract between the export page and the exporter
-lives in `src/data/chrome.mjs`.
+The scripts ship in the npm tarball (`files: src, scripts`), so an
+installed consumer runs them from
+`node_modules/@oimlsmart/site-shell/scripts/`. `apply-chrome.mjs`
+rewrites the asset URLs to your base and injects the fragments into
+your built pages; `--skip` leaves matched paths unchromed. The marker
+contract between the export page and the exporter lives in
+`src/data/chrome.mjs`.
+
+## Docs layout
+
+`DocsSidebar` mounts your `docs` content collection (entries with
+optional `title`, `shortTitle`, and numeric `order`; sections are id
+prefixes like `guides/…`). Declare the collection in your
+`src/content.config.ts` and pass `order`/`labels`/`hrefBase` to match
+your layout. `SearchBox` takes an optional `base` prop if your
+pagefind index is not at the site root (GitHub Pages project sites).
 
 ## Theme contract
 
