@@ -145,8 +145,16 @@ onMounted(() => {
 /* The overlay's own light/dark logo rules — SiteHeader's scoped styles
    never reach a Vue island, so this component carries its own. */
 .logo-dark { display: none; }
-:global(.dark) .logo-dark { display: block; }
-:global(.dark) .logo-light { display: none; }
+</style>
+<style>
+/* :global() is CSS-modules syntax — INVALID in Vue SFC scoped styles; the
+   minifier mangled it into a literal `.dark { display: none }` rule that
+   blanked the whole page whenever html.dark was set. The swap lives in
+   an unscoped block keyed to html.dark instead. */
+html.dark .logo-dark { display: block; }
+html.dark .logo-light { display: none; }
+</style>
+<style scoped>
 
 .mobile-nav-enter-active,
 .mobile-nav-leave-active {
