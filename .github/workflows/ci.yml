@@ -3,7 +3,9 @@ name: ci
 # The shell's proof (TODO.FULL/02): the fixture site consumes the package
 # and builds — header/hero/footer compile into the output, both color
 # schemes render. A token or component change that breaks the chrome
-# fails here, not in a consumer.
+# fails here, not in a consumer. The 2026-08-28 blanking (a bare
+# .dark{display:none} rule) is why the gate also runs a layout check in
+# both schemes and a theme-class guard over the built CSS.
 
 on:
   push: { branches: [main] }
@@ -40,8 +42,19 @@ jobs:
           grep -q "https://www.oimlsmart.org/smart-logo-light.svg" dist/_astro/MobileNav.*.js
           ! grep -q 'src:"/smart-logo' dist/_astro/MobileNav.*.js
           echo "the mobile nav's logo carries the absolute defaults, never the relative paths"
+      - name: theme guard (no bare .dark{display:none}, no :global( in Vue scoped styles)
+        run: node scripts/guard.mjs --dist test/fixture/dist
+      - name: install chromium for the render check
+        working-directory: test/fixture
+        run: npx playwright install --with-deps chromium
+      - name: both color schemes lay out (the 2026-08-28 blanking regression)
+        working-directory: test/fixture
+        run: npm run check:render
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: fixture-dist
-          path: test/fixture/dist
+          path: |
+            test/fixture/dist
+            test/fixture/artifacts
           retention-days: 7
