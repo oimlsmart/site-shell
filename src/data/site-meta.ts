@@ -4,17 +4,13 @@
  * resolveBrand(), so a minisite override threads through header, mobile
  * overlay, and footer together, and the defaults cannot drift between
  * them (the 2026-08-24 missing-logo incident was exactly that drift).
+ * The raw constants live in the node-safe leaf ./site.mjs (site URLs,
+ * legal pages, partners) so the gate can import the same values.
  */
+import { SITE } from './site.mjs'
 
-export const SITE = {
-  url: 'https://www.oimlsmart.org',
-  title: 'OIML SMART',
-  description: 'Standards that are Machine-Actionable, Readable and Transferrable.',
-  lang: 'en-US',
-  feedTitle: 'OIML SMART pilot updates',
-  feedDescription:
-    'Working notes and milestone snapshots from the OIML SMART pilot programme.',
-} as const
+export { SITE }
+export { LEGAL, PARTNERS } from './site.mjs'
 
 export interface BrandProps {
   /** The wordmark rendered beside the logos. */
