@@ -58,7 +58,11 @@ const FONT_URL =
 <body>
   {internal && <InternalBanner />}
   <SiteHeader {brandName} {logoLight} {logoDark} {signInHref}>
-      <slot name="signin" slot="signin" />
+      <!-- Forwarded WITH a fallback: an empty passthrough registers the
+           slot as provided and suppresses SiteHeader's default link. -->
+      <slot name="signin" slot="signin">
+        <a href={signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
+      </slot>
     </SiteHeader>
   <main class="min-h-[calc(100vh-3.5rem-5rem)]">
     <slot />
