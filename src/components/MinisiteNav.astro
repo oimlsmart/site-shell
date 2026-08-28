@@ -12,7 +12,7 @@ const { sections, base = '' } = Astro.props
 const path = Astro.url.pathname
 ---
 
-<nav class="border-b border-rule bg-paper dark:bg-paper-deep">
+<nav aria-label="Sections" class="border-b border-rule bg-paper dark:bg-paper-deep">
   <div class="max-w-7xl mx-auto px-6 flex items-center gap-6 h-11">
     {sections.map(s => (
       <a

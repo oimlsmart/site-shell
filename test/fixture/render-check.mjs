@@ -108,6 +108,25 @@ try {
       failures.push(`${pageName}: light and dark screenshots are byte-identical — the color scheme is not visually applied`)
   }
 
+  // The mobile overlay must behave as a dialog: semantics, Esc, focus.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 375, height: 700 } })
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/`, { waitUntil: 'load' })
+    await pg.waitForTimeout(300) // let the MobileNav island hydrate
+    await pg.getByRole('button', { name: 'Open menu' }).click()
+    const dialog = pg.locator('[role="dialog"][aria-modal="true"]')
+    const opened = await dialog.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
+    if (!opened) failures.push('mobile: the overlay did not open as role="dialog" aria-modal="true"')
+    else {
+      await pg.keyboard.press('Escape')
+      await pg.waitForTimeout(500)
+      if (await dialog.isVisible().catch(() => false)) failures.push('mobile: Escape did not close the overlay dialog')
+    }
+    await ctx.close()
+  }
+
   await browser.close()
 } catch (err) {
   failures.push(`harness error: ${err.message}\nastro preview log:\n${previewLog}`)
@@ -120,4 +139,4 @@ if (failures.length) {
   for (const f of failures) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`render check passed: ${PAGES.length} page(s) × light + dark lay out, the logos swap, screenshots in artifacts/`)
+console.log(`render check passed: ${PAGES.length} page(s) × light + dark lay out, the logos swap, the mobile dialog opens and Esc-closes, screenshots in artifacts/`)

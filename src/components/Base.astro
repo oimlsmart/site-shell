@@ -60,6 +60,7 @@ const FONT_URL =
   <slot name="head" />
 </head>
 <body>
+  <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-[400] focus:top-3 focus:left-3 focus:px-4 focus:py-2 focus:rounded focus:bg-paper focus:text-ink focus:border focus:border-rule focus:shadow no-underline">Skip to content</a>
   {internal && <InternalBanner />}
   <SiteHeader
     brandName={brand.brandName}
@@ -74,7 +75,7 @@ const FONT_URL =
         <a href={brand.signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
       </slot>
     </SiteHeader>
-  <main class="min-h-[calc(100vh-3.5rem-5rem)]">
+  <main id="main" class="min-h-[calc(100vh-3.5rem-5rem)]">
     <slot />
   </main>
   <SiteFooter brandName={brand.brandName} logoLight={brand.logoLight} logoDark={brand.logoDark} />

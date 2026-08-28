@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { NAV_ITEMS } from '../data/nav-config'
 import { resolveBrand } from '../data/site-meta'
 import { useTheme } from '../composables/useTheme'
@@ -24,10 +24,16 @@ const { brandName, logoLight, logoDark, homeHref, signInHref } = resolveBrand(pr
 const isOpen = ref(false)
 const expandedSection = ref<string | null>(null)
 const { isDark, toggle: toggleTheme } = useTheme()
+const triggerButton = ref<HTMLButtonElement | null>(null)
+const closeButton = ref<HTMLButtonElement | null>(null)
 
 function toggleMenu() {
   isOpen.value = !isOpen.value
   document.body.style.overflow = isOpen.value ? 'hidden' : ''
+  // The overlay is a dialog: focus moves into it on open and back to
+  // the trigger on close (Esc included).
+  if (isOpen.value) nextTick(() => closeButton.value?.focus())
+  else triggerButton.value?.focus()
 }
 
 function toggleSection(id: string) {
@@ -38,18 +44,20 @@ function toggleSection(id: string) {
 <template>
   <!-- Hamburger trigger button -->
   <button
-    class="md:hidden flex flex-col items-center justify-center gap-[5px] w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent"
+    ref="triggerButton"
+    class="md:hidden flex flex-col items-center justify-center gap-[5px] w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent touch-manipulation"
     @click="toggleMenu"
     aria-label="Open menu"
+    :aria-expanded="isOpen"
   >
-    <span class="block w-5 h-0.5 rounded-full bg-ink transition-all duration-200" :class="{ 'translate-y-[7px] rotate-45': isOpen }"></span>
-    <span class="block w-5 h-0.5 rounded-full bg-ink transition-all duration-200" :class="{ 'opacity-0': isOpen }"></span>
-    <span class="block w-5 h-0.5 rounded-full bg-ink transition-all duration-200" :class="{ '-translate-y-[7px] -rotate-45': isOpen }"></span>
+    <span class="block w-5 h-0.5 rounded-full bg-ink transition-[transform,opacity] duration-200 motion-reduce:transition-none" :class="{ 'translate-y-[7px] rotate-45': isOpen }"></span>
+    <span class="block w-5 h-0.5 rounded-full bg-ink transition-[transform,opacity] duration-200 motion-reduce:transition-none" :class="{ 'opacity-0': isOpen }"></span>
+    <span class="block w-5 h-0.5 rounded-full bg-ink transition-[transform,opacity] duration-200 motion-reduce:transition-none" :class="{ '-translate-y-[7px] -rotate-45': isOpen }"></span>
   </button>
 
   <!-- Full-screen mobile nav overlay -->
   <Transition name="mobile-nav">
-      <div v-if="isOpen" class="fixed inset-0 z-[300] bg-paper flex flex-col md:hidden">
+      <div v-if="isOpen" role="dialog" aria-modal="true" aria-label="Menu" @keydown.escape="toggleMenu" class="fixed inset-0 z-[300] bg-paper flex flex-col md:hidden">
       <!-- Panel header with logo + close -->
       <div class="flex items-center justify-between h-14 px-6 border-b border-rule shrink-0">
         <a :href="homeHref" class="flex items-center gap-2 no-underline text-ink" @click="toggleMenu">
@@ -58,7 +66,8 @@ function toggleSection(id: string) {
           <span class="font-serif text-base font-semibold tracking-tight">{{ brandName }}</span>
         </a>
         <button
-          class="flex items-center justify-center w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent"
+          ref="closeButton"
+          class="flex items-center justify-center w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent touch-manipulation"
           @click="toggleMenu"
           aria-label="Close menu"
         >
@@ -69,7 +78,7 @@ function toggleSection(id: string) {
       </div>
 
       <!-- Nav items in NAV_ITEMS order -->
-      <div class="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-1">
+      <div class="flex-1 overflow-y-auto overscroll-contain px-6 py-4 flex flex-col gap-1">
         <template v-for="(item, i) in NAV_ITEMS" :key="i">
           <!-- Dropdown section -->
           <div v-if="item.type === 'dropdown'">
@@ -114,7 +123,7 @@ function toggleSection(id: string) {
         <!-- Bottom: theme toggle icon + sign in -->
         <div class="mt-auto pt-4 border-t border-rule flex items-center justify-between">
           <button
-            class="flex items-center justify-center w-11 h-11 rounded-lg border border-rule cursor-pointer text-lg transition-colors hover:border-accent bg-transparent"
+            class="flex items-center justify-center w-11 h-11 rounded-lg border border-rule cursor-pointer text-lg transition-colors hover:border-accent bg-transparent touch-manipulation"
             @click="toggleTheme"
             :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
           >
@@ -155,7 +164,7 @@ html.dark .logo-light { display: none; }
 
 .expand-enter-active,
 .expand-leave-active {
-  transition: all 0.2s ease;
+  transition: opacity 0.2s ease, max-height 0.2s ease;
   overflow: hidden;
 }
 .expand-enter-from,
@@ -167,5 +176,14 @@ html.dark .logo-light { display: none; }
 .expand-leave-from {
   opacity: 1;
   max-height: 500px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-enter-active,
+  .mobile-nav-leave-active,
+  .expand-enter-active,
+  .expand-leave-active {
+    transition: none;
+  }
 }
 </style>
