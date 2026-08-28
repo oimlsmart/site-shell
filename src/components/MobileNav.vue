@@ -147,10 +147,11 @@ onMounted(() => {
 .logo-dark { display: none; }
 </style>
 <style>
-/* :global() is CSS-modules syntax — INVALID in Vue SFC scoped styles; the
-   minifier mangled it into a literal `.dark { display: none }` rule that
-   blanked the whole page whenever html.dark was set. The swap lives in
-   an unscoped block keyed to html.dark instead. */
+/* :global() in a Vue SFC scoped block only supports wrapping a whole rule.
+   Used in prefix position (":global(.dark) .x") compiler-sfc silently drops
+   the trailing selector and emits a bare `.dark { … }` rule — that blanked
+   the page under html.dark in 0.1.2. The swap lives in an unscoped block
+   keyed to html.dark instead. See the Theme contract in the README. */
 html.dark .logo-dark { display: block; }
 html.dark .logo-light { display: none; }
 </style>
