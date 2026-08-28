@@ -1,38 +1,37 @@
 ---
 /**
  * The federation header (TODO.FULL/02) — the OIML SMART chrome every site
- * renders: brand + the component nav + search + theme + sign-in. Props
- * override the defaults so a minisite can pass its own brand suffix.
+ * renders: brand + the component nav + search + theme + sign-in. Brand
+ * props resolve through site-meta's resolveBrand (the one home for the
+ * defaults) and thread down to the mobile overlay unchanged.
  */
 import MobileNav from './MobileNav.vue'
 import NavDropdown from './NavDropdown.vue'
 import SearchBox from './SearchBox.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import { NAV_ITEMS, isLinkActive } from '../data/nav-config'
+import { resolveBrand, type BrandProps } from '../data/site-meta'
 
-interface Props {
-  brandName?: string
-  logoLight?: string
-  logoDark?: string
-  signInHref?: string
-}
-const {
-  brandName = 'OIML SMART',
-  logoLight = 'https://www.oimlsmart.org/smart-logo-light.svg',
-  logoDark = 'https://www.oimlsmart.org/smart-logo-dark.svg',
-  signInHref = '/login/',
-} = Astro.props
+interface Props extends BrandProps {}
+const brand = resolveBrand(Astro.props)
 const path = Astro.url.pathname
 ---
 
 <header class="site-nav sticky top-0 z-[100] bg-paper-soft dark:bg-paper-deep border-b border-rule">
   <div class="max-w-7xl mx-auto px-6 flex items-center justify-between h-14">
-    <a href="https://www.oimlsmart.org/" class="nav-brand flex items-center gap-2 no-underline text-ink min-w-0">
-      <img src={logoLight} alt="" class="logo-light h-7 w-auto shrink-0" />
-      <img src={logoDark} alt="" class="logo-dark h-7 w-auto shrink-0" />
-      <span class="font-serif text-base font-semibold tracking-tight truncate">{brandName}</span>
+    <a href={brand.homeHref} class="nav-brand flex items-center gap-2 no-underline text-ink min-w-0">
+      <img src={brand.logoLight} alt="" class="logo-light h-7 w-auto shrink-0" />
+      <img src={brand.logoDark} alt="" class="logo-dark h-7 w-auto shrink-0" />
+      <span class="font-serif text-base font-semibold tracking-tight truncate">{brand.brandName}</span>
     </a>
-    <MobileNav client:load brandName={brandName} logoLight={logoLight} logoDark={logoDark} signInHref={signInHref} />
+    <MobileNav
+      client:load
+      brandName={brand.brandName}
+      logoLight={brand.logoLight}
+      logoDark={brand.logoDark}
+      homeHref={brand.homeHref}
+      signInHref={brand.signInHref}
+    />
     <nav class="nav-menu hidden md:flex items-center gap-5" id="nav-menu">
       {NAV_ITEMS.map(item => (
         item.type === 'dropdown' ? (
@@ -47,7 +46,7 @@ const path = Astro.url.pathname
       <SearchBox client:idle />
       <ThemeToggle client:load />
       <slot name="signin">
-        <a href={signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
+        <a href={brand.signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
       </slot>
     </nav>
   </div>

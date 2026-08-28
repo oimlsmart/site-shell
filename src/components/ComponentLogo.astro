@@ -1,11 +1,15 @@
 ---
 /**
  * ComponentLogo — one OIML SMART component's logo, light/dark swapped by
- * the color scheme (the brand header's picture pattern). The assets are
- * the ONE public copy at https://www.oimlsmart.org/img/components/
- * (TODO.components/01 + TODO.FULL/02: no per-site copies — every site
- * references the canonical URL, so it renders on any origin).
+ * the html.dark class (the same mechanism as every other logo in the
+ * shell — a prefers-color-scheme media query here would ignore the manual
+ * theme toggle). The assets are the ONE public copy at
+ * https://www.oimlsmart.org/img/components/ (TODO.components/01 +
+ * TODO.FULL/02: no per-site copies — every site references the canonical
+ * URL, so it renders on any origin).
  */
+import { COMPONENT_ASSET_BASE } from '../data/site-meta'
+
 interface Props {
   /** The component slug: smart-rec, smart-studio, cs-smart, smi, sst, cnml-box. */
   name: string
@@ -18,10 +22,16 @@ interface Props {
   base?: string
 }
 
-const { name, alt, width = 112, class: className = '', base = 'https://www.oimlsmart.org/img/components' } = Astro.props
+const { name, alt, width = 112, class: className = '', base = COMPONENT_ASSET_BASE } = Astro.props
 ---
 
-<picture class={`component-logo ${className}`}>
-  <source srcset={`${base}/${name}-dark.svg`} media="(prefers-color-scheme: dark)" />
-  <img src={`${base}/${name}-light.svg`} alt={alt} width={width} loading="lazy" />
-</picture>
+<span class={`component-logo ${className}`}>
+  <img src={`${base}/${name}-light.svg`} alt={alt} width={width} loading="lazy" class="component-logo-light" />
+  <img src={`${base}/${name}-dark.svg`} alt="" aria-hidden="true" width={width} loading="lazy" class="component-logo-dark" />
+</span>
+
+<style>
+.component-logo-dark { display: none; }
+html.dark .component-logo-light { display: none; }
+html.dark .component-logo-dark { display: inline; }
+</style>

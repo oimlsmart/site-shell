@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { NAV_ITEMS } from '../data/nav-config'
+import { resolveBrand } from '../data/site-meta'
+import { useTheme } from '../composables/useTheme'
 
-// The overlay's logo rides the SAME values the desktop header resolves
-// (SiteHeader passes its props down): absolute URLs with the oimlsmart.org
-// defaults — a relative /smart-logo-*.svg would 404 on any other host
-// (2026-08-24: the hamburger overlay's logo was missing on the identity
-// service for exactly that), and the light/dark display rules live in THIS
-// component's own styles (the header's scoped rules never reach a Vue
-// island).
+// The overlay's logo rides the SAME resolved brand the desktop header
+// passes down (SiteHeader threads its brand props): absolute URLs with
+// the oimlsmart.org defaults — a relative /smart-logo-*.svg would 404 on
+// any other host (2026-08-24: the hamburger overlay's logo was missing
+// on the identity service for exactly that), and the light/dark display
+// rules live in THIS component's own styles (the header's scoped rules
+// never reach a Vue island).
 interface Props {
   brandName?: string
   logoLight?: string
@@ -16,17 +18,12 @@ interface Props {
   homeHref?: string
   signInHref?: string
 }
-const {
-  brandName = 'OIML SMART',
-  logoLight = 'https://www.oimlsmart.org/smart-logo-light.svg',
-  logoDark = 'https://www.oimlsmart.org/smart-logo-dark.svg',
-  homeHref = '/',
-  signInHref = '/login/',
-} = defineProps<Props>()
+const props = defineProps<Props>()
+const { brandName, logoLight, logoDark, homeHref, signInHref } = resolveBrand(props)
 
 const isOpen = ref(false)
 const expandedSection = ref<string | null>(null)
-const isDark = ref(false)
+const { isDark, toggle: toggleTheme } = useTheme()
 
 function toggleMenu() {
   isOpen.value = !isOpen.value
@@ -36,16 +33,6 @@ function toggleMenu() {
 function toggleSection(id: string) {
   expandedSection.value = expandedSection.value === id ? null : id
 }
-
-function toggleTheme() {
-  const dark = document.documentElement.classList.toggle('dark')
-  localStorage.setItem('oiml-theme', dark ? 'dark' : 'light')
-  isDark.value = dark
-}
-
-onMounted(() => {
-  isDark.value = document.documentElement.classList.contains('dark')
-})
 </script>
 
 <template>

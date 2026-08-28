@@ -1,7 +1,7 @@
 /**
  * useClickOutside — detect clicks outside a referenced element.
  *
- * Used by AboutDropdown.vue. Calls the handler when the user
+ * Used by NavDropdown.vue. Calls the handler when the user
  * clicks anywhere outside the root element.
  */
 import { ref, onMounted, onBeforeUnmount, type Ref } from 'vue'

@@ -4,13 +4,16 @@
  * federation header + footer. Consumers wrap their page:
  *   <Base title="…" description="…"><slot /></Base>
  * Tokens come from @oimlsmart/site-shell/tokens.css (the one home for
- * colors and type); logos resolve to the canonical oimlsmart.org URLs.
+ * colors and type); the brand resolves through site-meta's resolveBrand
+ * so a consumer override threads into header, mobile overlay, and
+ * footer together.
  */
 import { ClientRouter } from 'astro:transitions'
 import SiteHeader from './SiteHeader.astro'
 import SiteFooter from './SiteFooter.astro'
 import InternalBanner from './InternalBanner.astro'
-
+import { SITE, resolveBrand } from '../data/site-meta'
+import { THEME_BOOTSTRAP } from '../composables/useTheme'
 
 interface Props {
   title: string
@@ -28,7 +31,8 @@ interface Props {
   /** The html lang attribute — bilingual minisites pass their page locale. */
   lang?: string
 }
-const { title, description, siteTitle = 'OIML SMART', brandName, logoLight, logoDark, signInHref, internal = false, lang = 'en-US' } = Astro.props
+const { title, description, siteTitle = SITE.title, internal = false, lang = SITE.lang } = Astro.props
+const brand = resolveBrand(Astro.props)
 const pageTitle = title ? `${title} | ${siteTitle}` : siteTitle
 
 const FONT_URL =
@@ -57,29 +61,24 @@ const FONT_URL =
 </head>
 <body>
   {internal && <InternalBanner />}
-  <SiteHeader {brandName} {logoLight} {logoDark} {signInHref}>
+  <SiteHeader
+    brandName={brand.brandName}
+    logoLight={brand.logoLight}
+    logoDark={brand.logoDark}
+    homeHref={brand.homeHref}
+    signInHref={brand.signInHref}
+  >
       <!-- Forwarded WITH a fallback: an empty passthrough registers the
            slot as provided and suppresses SiteHeader's default link. -->
       <slot name="signin" slot="signin">
-        <a href={signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
+        <a href={brand.signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
       </slot>
     </SiteHeader>
   <main class="min-h-[calc(100vh-3.5rem-5rem)]">
     <slot />
   </main>
-  <SiteFooter />
+  <SiteFooter brandName={brand.brandName} logoLight={brand.logoLight} logoDark={brand.logoDark} />
 
-  <script is:inline>
-    var stored = localStorage.getItem('oiml-theme')
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    if (stored === 'dark' || (!stored && prefersDark)) {
-      document.documentElement.classList.add('dark')
-    }
-    document.addEventListener('astro:before-swap', function(e) {
-      if (document.documentElement.classList.contains('dark')) {
-        e.newDocument.documentElement.classList.add('dark')
-      }
-    })
-  </script>
+  <script is:inline set:html={THEME_BOOTSTRAP} />
 </body>
 </html>
