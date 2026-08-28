@@ -6,10 +6,13 @@
  * full-document generators like the glossarist concept-browser and the
  * Jekyll specs site that cannot mount the shell's Astro components).
  * Not linked from anywhere; the fixture build emits it as
- * /chrome-export/index.html.
+ * /chrome-export/index.html. The markers come from the shared contract
+ * module — the same constants export-chrome.mjs slices on.
  */
 import SiteHeader from '@oimlsmart/site-shell/components/SiteHeader.astro'
 import SiteFooter from '@oimlsmart/site-shell/components/SiteFooter.astro'
+import { THEME_BOOTSTRAP } from '@oimlsmart/site-shell'
+import { CHROME_MARKERS } from '@oimlsmart/site-shell/data/chrome.mjs'
 import '../styles/app.css'
 ---
 
@@ -20,18 +23,12 @@ import '../styles/app.css'
   <title>chrome-export</title>
 </head>
 <body>
-  <!-- chrome-header:start -->
+  <Fragment set:html={`<!-- ${CHROME_MARKERS.header.start} -->`} />
   <SiteHeader />
-  <!-- chrome-header:end -->
-  <!-- chrome-footer:start -->
+  <Fragment set:html={`<!-- ${CHROME_MARKERS.header.end} -->`} />
+  <Fragment set:html={`<!-- ${CHROME_MARKERS.footer.start} -->`} />
   <SiteFooter />
-  <!-- chrome-footer:end -->
-  <script is:inline>
-    var stored = localStorage.getItem('oiml-theme')
-    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    if (stored === 'dark' || (!stored && prefersDark)) {
-      document.documentElement.classList.add('dark')
-    }
-  </script>
+  <Fragment set:html={`<!-- ${CHROME_MARKERS.footer.end} -->`} />
+  <script is:inline set:html={THEME_BOOTSTRAP} />
 </body>
 </html>

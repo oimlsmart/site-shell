@@ -1,5 +1,9 @@
 ---
 import { NAV_ITEMS } from '../data/nav-config'
+import { resolveBrand, type BrandProps } from '../data/site-meta'
+
+interface Props extends BrandProps {}
+const brand = resolveBrand(Astro.props)
 ---
 
 <footer class="border-t border-rule bg-paper-deep">
@@ -8,9 +12,9 @@ import { NAV_ITEMS } from '../data/nav-config'
       <!-- Brand + description -->
       <div>
         <div class="flex items-center gap-2 mb-3">
-          <img src="https://www.oimlsmart.org/smart-logo-light.svg" alt="" class="logo-light h-6 w-auto" />
-          <img src="https://www.oimlsmart.org/smart-logo-dark.svg" alt="" class="logo-dark h-6 w-auto" />
-          <span class="font-serif text-sm font-semibold">OIML SMART</span>
+          <img src={brand.logoLight} alt="" class="logo-light h-6 w-auto" />
+          <img src={brand.logoDark} alt="" class="logo-dark h-6 w-auto" />
+          <span class="font-serif text-sm font-semibold">{brand.brandName}</span>
         </div>
         <p class="text-xs text-ink-muted leading-relaxed max-w-xs">
           Machine-actionable Recommendations for the International Organization of Legal Metrology.

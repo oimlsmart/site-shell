@@ -94,13 +94,21 @@ export type NavItem =
   | { type: 'dropdown'; config: NavDropdownConfig }
   | { type: 'link'; label: string; href: string; matchPrefix: string }
 
+const DROPDOWNS_BY_ID = new Map(NAV_DROPDOWNS.map(d => [d.id, d]))
+
+function dropdown(id: string): NavDropdownConfig {
+  const config = DROPDOWNS_BY_ID.get(id)
+  if (!config) throw new Error(`nav-config: no dropdown '${id}'`)
+  return config
+}
+
 export const NAV_ITEMS: readonly NavItem[] = [
-  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'smart')! },
-  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'smartplus')! },
-  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'resources')! },
+  { type: 'dropdown', config: dropdown('smart') },
+  { type: 'dropdown', config: dropdown('smartplus') },
+  { type: 'dropdown', config: dropdown('resources') },
   { type: 'link', label: 'News', href: '/news/', matchPrefix: '/news' },
-  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'about')! },
-  { type: 'dropdown', config: NAV_DROPDOWNS.find(d => d.id === 'internal')! },
+  { type: 'dropdown', config: dropdown('about') },
+  { type: 'dropdown', config: dropdown('internal') },
 ]
 
 // The standalone OIML-CS top-level link folded into the /smart component
