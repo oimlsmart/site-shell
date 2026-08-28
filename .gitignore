@@ -4,4 +4,5 @@ dist/
 test/fixture/node_modules/
 test/fixture/dist/
 test/fixture/.astro/
+test/fixture/artifacts/
 dist-chrome/

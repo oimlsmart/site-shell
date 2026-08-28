@@ -8,8 +8,9 @@ name: Release
 # workflow file.
 #
 # The shell's own gate runs first, the same proof as ci.yml: the
-# fixture site consumes the package and the chrome must compile into
-# the output before any publish runs.
+# fixture site consumes the package, the chrome must compile into the
+# output, the theme guard must pass, and both color schemes must lay
+# out before any publish runs.
 #
 # The publish step runs ONLY once the package is registered on npm.
 # Until the one-time manual first publish and the trusted-publisher
@@ -59,6 +60,14 @@ jobs:
           grep -q "OIML SMART" dist/index.html
           grep -q "color-brand" dist/_astro/*.css
           echo "header + brand + tokens present in the built page"
+      - name: Theme guard
+        run: node scripts/guard.mjs --dist test/fixture/dist
+      - name: Install chromium for the render check
+        working-directory: test/fixture
+        run: npx playwright install --with-deps chromium
+      - name: Both color schemes lay out
+        working-directory: test/fixture
+        run: npm run check:render
       - name: Check the package is registered on npm
         id: gate
         run: |
