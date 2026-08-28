@@ -18,7 +18,7 @@ const props = defineProps<{
   currentPath: string
 }>()
 
-const { root, isOpen, toggle } = useClickOutside()
+const { root, isOpen, toggle, close } = useClickOutside()
 
 const isInternal = computed(() => props.config.variant === 'internal')
 const isActive = computed(() => isDropdownActive(props.config, props.currentPath))
@@ -61,7 +61,7 @@ function activeClass(href: string): string {
 </script>
 
 <template>
-  <div ref="root" class="nav-dropdown relative flex items-center" @mouseenter="onEnter" @mouseleave="onLeave">
+  <div ref="root" class="nav-dropdown relative flex items-center" @mouseenter="onEnter" @mouseleave="onLeave" @keydown.escape="close">
     <div v-if="isInternal" class="hidden sm:block w-px h-5 bg-rule mr-3" aria-hidden="true" />
     <button
       class="inline-flex items-center gap-1.5 text-sm font-medium transition-colors whitespace-nowrap"
@@ -76,7 +76,7 @@ function activeClass(href: string): string {
       <span class="text-[0.625rem] text-ink-muted">▾</span>
     </button>
     <div
-      class="absolute top-full mt-2 min-w-[240px] bg-paper-soft border border-rule rounded-lg p-1.5 shadow-lg flex-col gap-0.5 z-[200] transition-all duration-150"
+      class="absolute top-full mt-2 min-w-[240px] bg-paper-soft border border-rule rounded-lg p-1.5 shadow-lg flex-col gap-0.5 z-[200] transition-[opacity,transform,visibility] duration-150 motion-reduce:transition-none"
       :class="[
         isInternal ? 'right-0' : 'left-0',
         isOpen ? 'flex opacity-100 visible translate-y-0' : 'hidden opacity-0 invisible',

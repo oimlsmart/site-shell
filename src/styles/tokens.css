@@ -127,6 +127,8 @@
 }
 
 .dark {
+  /* Fix native UI (scrollbars, inputs) for the active dark theme */
+  color-scheme: dark;
   /* Override @theme semantic colors for dark mode */
   --color-paper:        #0a1628;
   --color-paper-soft:   #13233d;
@@ -217,7 +219,7 @@
    ──────────────────────────────────────────────────── */
 @layer components {
   .btn {
-    @apply inline-flex items-center gap-2 px-5 py-3 rounded text-sm font-medium transition-all cursor-pointer border border-transparent no-underline;
+    @apply inline-flex items-center gap-2 px-5 py-3 rounded text-sm font-medium transition-[background-color,border-color,color,box-shadow] motion-reduce:transition-none cursor-pointer border border-transparent no-underline;
   }
   .btn-primary {
     color: var(--paper);
