@@ -45,7 +45,7 @@ function toggleSection(id: string) {
   <!-- Hamburger trigger button -->
   <button
     ref="triggerButton"
-    class="md:hidden flex flex-col items-center justify-center gap-[5px] w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent touch-manipulation"
+    class="lg:hidden flex flex-col items-center justify-center gap-[5px] w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent touch-manipulation"
     @click="toggleMenu"
     aria-label="Open menu"
     :aria-expanded="isOpen"
@@ -57,7 +57,7 @@ function toggleSection(id: string) {
 
   <!-- Full-screen mobile nav overlay -->
   <Transition name="mobile-nav">
-      <div v-if="isOpen" role="dialog" aria-modal="true" aria-label="Menu" @keydown.escape="toggleMenu" class="fixed inset-0 z-[300] bg-paper flex flex-col md:hidden">
+      <div v-if="isOpen" role="dialog" aria-modal="true" aria-label="Menu" @keydown.escape="toggleMenu" class="fixed inset-0 z-[300] bg-paper flex flex-col lg:hidden">
       <!-- Panel header with logo + close -->
       <div class="flex items-center justify-between h-14 px-6 border-b border-rule shrink-0">
         <a :href="homeHref" class="flex items-center gap-2 no-underline text-ink" @click="toggleMenu">
