@@ -105,6 +105,14 @@ function dropdown(id: string): NavDropdownConfig {
 export const NAV_ITEMS: readonly NavItem[] = [
   { type: 'dropdown', config: dropdown('smart') },
   { type: 'dropdown', config: dropdown('smartplus') },
+  // The four first-class front-door sections (TODO.promotion/01: the
+  // public story's role-first navigation). Standalone links while the
+  // sections carry only their index pages; each promotes to a dropdown
+  // when its member pages land (waves 02-04).
+  { type: 'link', label: 'Audiences', href: '/audiences/', matchPrefix: '/audiences' },
+  { type: 'link', label: 'Technologies', href: '/technologies/', matchPrefix: '/technologies' },
+  { type: 'link', label: 'Use Cases', href: '/use-cases/', matchPrefix: '/use-cases' },
+  { type: 'link', label: 'Services', href: '/services/', matchPrefix: '/services' },
   { type: 'dropdown', config: dropdown('resources') },
   { type: 'link', label: 'News', href: '/news/', matchPrefix: '/news' },
   { type: 'dropdown', config: dropdown('about') },
