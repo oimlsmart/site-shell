@@ -32,7 +32,7 @@ const path = Astro.url.pathname
       homeHref={brand.homeHref}
       signInHref={brand.signInHref}
     />
-    <nav class="nav-menu hidden lg:flex items-center gap-5" id="nav-menu" aria-label="Primary">
+    <nav class="nav-menu hidden lg:flex items-center gap-4" id="nav-menu" aria-label="Primary">
       {NAV_ITEMS.map(item => (
         item.type === 'dropdown' ? (
           <NavDropdown client:load config={item.config} currentPath={path} />
