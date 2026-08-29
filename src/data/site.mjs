@@ -27,3 +27,10 @@ export const PARTNERS = {
   ribose: 'https://www.ribose.com',
   github: 'https://github.com/oimlsmart',
 }
+
+/** The estate's service surfaces referenced by the footer. The status
+ *  service lives on its own origin (a Cloudflare Worker), so the link
+ *  is literal here, never front-door derived. */
+export const SERVICES = {
+  status: 'https://status.oimlsmart.org',
+}
