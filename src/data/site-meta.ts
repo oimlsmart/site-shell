@@ -10,7 +10,7 @@
 import { SITE } from './site.mjs'
 
 export { SITE }
-export { LEGAL, PARTNERS } from './site.mjs'
+export { LEGAL, PARTNERS, SERVICES } from './site.mjs'
 
 export interface BrandProps {
   /** The wordmark rendered beside the logos. */

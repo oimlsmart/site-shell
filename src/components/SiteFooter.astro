@@ -1,6 +1,6 @@
 ---
 import { NAV_ITEMS } from '../data/nav-config'
-import { resolveBrand, frontDoor, LEGAL, PARTNERS, type BrandProps } from '../data/site-meta'
+import { resolveBrand, frontDoor, LEGAL, PARTNERS, SERVICES, type BrandProps } from '../data/site-meta'
 
 interface Props extends BrandProps {}
 const brand = resolveBrand(Astro.props)
@@ -46,6 +46,7 @@ const linkHref = (href: string, external?: boolean) => (external ? href : frontD
           <li><a href={frontDoor('/about/what-is-smart')} class="text-sm text-ink-soft hover:text-accent transition-colors">About OIML SMART</a></li>
           <li><a href={frontDoor('/pilot')} class="text-sm text-ink-soft hover:text-accent transition-colors">Pilot programme</a></li>
           <li><a href={frontDoor('/about/contact')} class="text-sm text-ink-soft hover:text-accent transition-colors">Contact</a></li>
+          <li><a href={SERVICES.status} class="text-sm text-ink-soft hover:text-accent transition-colors">Service status</a></li>
         </ul>
         <a href={PARTNERS.github} class="inline-flex items-center gap-2 text-sm text-ink-soft hover:text-accent transition-colors" aria-label="OIML SMART on GitHub">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" class="shrink-0">
