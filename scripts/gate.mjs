@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 // The gate — one entry point for "the chrome still works", run over the
 // built fixture: the compile checks (header, brand, tokens, threaded
-// props, the MobileNav logo regression, the showcase components) plus
-// the theme guard. ci.yml and release.yml run exactly this (then
+// props, the MobileNav logo regression, the showcase components, the
+// a11y legs), the theme guard, and the chrome-export pipeline (export →
+// apply → idempotence). ci.yml and release.yml run exactly this (then
 // gate:render), so the PR proof and the publish proof cannot drift
 // apart — they had: at the 0.1.2 tag the release gate was missing two
 // legs ci.yml already had.
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, cpSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { spawnSync } from 'node:child_process'
 import { runThemeGuard } from './guard.mjs'
-import { LEGAL } from '../src/data/site.mjs'
+import { LEGAL, SITE } from '../src/data/site.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'test/fixture/dist')
@@ -42,6 +45,9 @@ check(/aria-label="Sections"/.test(indexHtml), 'the minisite nav landmark labell
 check(docsHtml.includes('aria-label="Documentation"'), 'the docs nav landmark labelled')
 check(indexHtml.includes(`href="${LEGAL.privacy}"`), 'the footer Privacy legal link compiled into the page (from the site constants leaf)')
 check(indexHtml.includes(`href="${LEGAL.terms}"`), 'the footer Terms legal link compiled into the page (from the site constants leaf)')
+check(indexHtml.includes(`href="${SITE.url}/recs"`), 'federation nav links are front-door absolute (resolve from any origin)')
+check(indexHtml.includes(`href="${SITE.url}/pilot"`), 'the footer programme links are front-door absolute')
+check(showcaseHtml.includes(`href="${SITE.url}/pilot"`), 'the internal banner link is front-door absolute')
 check(/MobileNav\.[A-Za-z0-9_-]+\.js/.test(indexHtml) && indexHtml.includes('https://www.oimlsmart.org/smart-logo-light.svg'), 'the mobile nav island rides the absolute brand logo URLs (serialized props)')
 check(!/src:"\/smart-logo/.test(mobileNav), 'the mobile nav carries no relative logo paths (the 2026-08-24 regression)')
 check(showcaseHtml.includes('tier-toggle'), 'TierToggle mounted on the showcase page')
@@ -56,9 +62,41 @@ check(showcaseHtml.includes('DRAFT'), 'the internal banner mounted on the showca
 
 failures.push(...runThemeGuard(DIST))
 
+// --- the chrome-export pipeline: export → apply → idempotence. The
+// --- scripts ship in the tarball; this is their proof.
+{
+  const run = (script, ...args) =>
+    spawnSync(process.execPath, [join(ROOT, 'scripts', script), ...args], { encoding: 'utf8' })
+
+  const exported = run('export-chrome.mjs', DIST)
+  if (exported.status !== 0) {
+    failures.push(`chrome export failed: ${(exported.stderr || exported.stdout || '').trim()}`)
+  } else {
+    // A minimal foreign page — no chrome of its own, like the sites
+    // apply-chrome exists for (the glossarist/Jekyll pipelines).
+    const scratch = mkdtempSync(join(tmpdir(), 'chrome-smoke-'))
+    const siteDist = join(scratch, 'site')
+    mkdirSync(siteDist)
+    writeFileSync(join(siteDist, 'index.html'),
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>foreign</title></head><body><h1>a foreign page</h1></body></html>')
+
+    const applied = run('apply-chrome.mjs', ROOT, siteDist, '/smoke')
+    if (applied.status !== 0) {
+      failures.push(`chrome apply failed: ${(applied.stderr || applied.stdout || '').trim()}`)
+    } else {
+      const page = readFileSync(join(siteDist, 'index.html'), 'utf8')
+      check(page.includes('site-nav'), 'chrome pipeline: the header fragment injected into the foreign page')
+      check(page.includes('href="/smoke/_astro/'), 'chrome pipeline: asset URLs rewritten to the apply base')
+      check(readdirSync(join(siteDist, '_astro')).some(f => /^app-media\..*\.css$/.test(f)), 'chrome pipeline: the split responsive-variant stylesheet landed')
+      const again = run('apply-chrome.mjs', ROOT, siteDist, '/smoke')
+      check(again.status === 0 && /applied to 0 pages/.test(again.stdout), 'chrome pipeline: apply is idempotent (second run injects nothing)')
+    }
+  }
+}
+
 if (failures.length) {
   console.error(`gate FAILED (${failures.length}):`)
   for (const f of failures) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log('gate passed: chrome + showcase compiled, brand threaded, theme guard clean')
+console.log('gate passed: chrome + showcase compiled, brand threaded, theme guard clean, chrome pipeline proven')

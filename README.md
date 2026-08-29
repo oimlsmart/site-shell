@@ -151,13 +151,19 @@ do support `:global()`; the ban is Vue-only.)
 release workflow run — one definition, no drift:
 
 - **gate** — the chrome compiled into the built fixture (header, brand,
-  tokens, threaded props), the showcase components mounted, and the
-  theme guard clean: no bare `.dark{display:none}` rules anywhere, no
-  `:global(` in Vue scoped styles.
+  tokens, threaded props), the showcase components mounted, the a11y
+  legs (skip link, labelled landmarks), the theme guard clean (no bare
+  `.dark{display:none}` rules anywhere, no `:global(` in Vue scoped
+  styles), and the chrome-export pipeline proven: export → apply to a
+  foreign page → asset rewrite → idempotence.
 - **gate:render** — Playwright loads each fixture page in **both** color
   schemes and asserts layout geometry (not computed colors — a blank
-  page still greps clean and passes color probes), plus screenshots as
-  artifacts.
+  page still greps clean and passes color probes), the mobile dialog's
+  open/Esc behavior, plus screenshots as artifacts.
+
+Federation links (header nav, footer columns, the internal banner)
+render front-door absolute via `frontDoor()` — the chrome's links
+resolve from any minisite origin (ADR-0003).
 
 ## Releases — trusted publishing only
 

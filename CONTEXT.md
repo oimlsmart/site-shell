@@ -17,6 +17,13 @@ these are the domain names.
   partners) live in the node-safe leaf `src/data/site.mjs` so the gate
   asserts the same values the footer renders. Components never carry
   brand or site literals.
+- **Front door** — www.oimlsmart.org, the federation hub. Federation
+  links render front-door absolute via `frontDoor()` (ADR-0003) so the
+  chrome's links resolve from any minisite origin; registries keep
+  relative slugs, the origin is applied at render.
+- **Logo pair** — `.logo-light`/`.logo-dark`: shell vocabulary. The
+  swap rules live once in `tokens.css`; any component rendering the
+  pair inherits the correct behavior (theme contract).
 - **Theme runtime** — `src/composables/useTheme.ts`. The only owner of
   `.dark` on `<html>`: the storage key, the FOUC bootstrap string, and
   the toggle composable. The theme contract (README) bans everything
