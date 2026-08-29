@@ -126,6 +126,13 @@
   --vp-c-gutter:      var(--rule);
 }
 
+/* The light/dark logo pair — the ONE home for the swap (theme contract).
+   Any component rendering .logo-light/.logo-dark inherits it: header,
+   footer, mobile overlay alike. */
+.logo-dark { display: none; }
+.dark .logo-light { display: none; }
+.dark .logo-dark { display: inline-block; }
+
 .dark {
   /* Fix native UI (scrollbars, inputs) for the active dark theme */
   color-scheme: dark;

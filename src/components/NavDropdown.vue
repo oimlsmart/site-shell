@@ -12,6 +12,7 @@
 import { computed } from 'vue'
 import { useClickOutside } from '../composables/useClickOutside'
 import { isDropdownActive, isLinkActive, type NavDropdownConfig, type NavLink } from '../data/nav-config'
+import { frontDoor } from '../data/site-meta'
 
 const props = defineProps<{
   config: NavDropdownConfig
@@ -98,7 +99,7 @@ function activeClass(href: string): string {
         <!-- Link -->
         <a
           v-else
-          :href="item.link.href"
+          :href="item.link.external ? item.link.href : frontDoor(item.link.href)"
           class="rounded no-underline transition-colors"
           :class="item.link.desc
             ? 'flex items-start gap-2 px-3 py-2 text-sm text-ink-soft hover:bg-paper-raised hover:text-accent'

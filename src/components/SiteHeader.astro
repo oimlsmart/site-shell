@@ -10,7 +10,7 @@ import NavDropdown from './NavDropdown.vue'
 import SearchBox from './SearchBox.vue'
 import ThemeToggle from './ThemeToggle.vue'
 import { NAV_ITEMS, isLinkActive } from '../data/nav-config'
-import { resolveBrand, type BrandProps } from '../data/site-meta'
+import { resolveBrand, frontDoor, type BrandProps } from '../data/site-meta'
 
 interface Props extends BrandProps {}
 const brand = resolveBrand(Astro.props)
@@ -38,7 +38,7 @@ const path = Astro.url.pathname
           <NavDropdown client:load config={item.config} currentPath={path} />
         ) : (
           <a
-            href={item.href}
+            href={frontDoor(item.href)}
             class={`text-sm font-medium text-ink-soft hover:text-accent transition-colors whitespace-nowrap ${isLinkActive(item.matchPrefix, path) ? 'text-accent font-semibold' : ''}`}
           >{item.label}</a>
         )
@@ -51,9 +51,3 @@ const path = Astro.url.pathname
     </nav>
   </div>
 </header>
-
-<style is:global>
-.logo-dark { display: none; }
-.dark .logo-light { display: none; }
-.dark .logo-dark { display: inline-block; }
-</style>
