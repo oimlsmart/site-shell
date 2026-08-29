@@ -54,4 +54,11 @@ export function resolveBrand(props: BrandProps = {}): ResolvedBrand {
 /** The canonical component-logo asset base (override only for staging). */
 export const COMPONENT_ASSET_BASE = `${SITE.url}/img/components`
 
+/** Federation routes resolve from any origin: minisites mount this
+ *  chrome on their own domains, where root-relative front-door paths
+ *  404 (the same class 7508918 fixed for brand assets). */
+export function frontDoor(path: string): string {
+  return `${SITE.url}${path}`
+}
+
 export default SITE

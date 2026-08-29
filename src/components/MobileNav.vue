@@ -138,21 +138,6 @@ function toggleSection(id: string) {
 </template>
 
 <style scoped>
-/* The overlay's own light/dark logo rules — SiteHeader's scoped styles
-   never reach a Vue island, so this component carries its own. */
-.logo-dark { display: none; }
-</style>
-<style>
-/* :global() in a Vue SFC scoped block only supports wrapping a whole rule.
-   Used in prefix position (":global(.dark) .x") compiler-sfc silently drops
-   the trailing selector and emits a bare `.dark { … }` rule — that blanked
-   the page under html.dark in 0.1.2. The swap lives in an unscoped block
-   keyed to html.dark instead. See the Theme contract in the README. */
-html.dark .logo-dark { display: block; }
-html.dark .logo-light { display: none; }
-</style>
-<style scoped>
-
 .mobile-nav-enter-active,
 .mobile-nav-leave-active {
   transition: transform 0.25s ease;
