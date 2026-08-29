@@ -1,6 +1,6 @@
 {
   "name": "@oimlsmart/site-shell",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "The OIML SMART house shell — the one SSOT for the chrome of every OIML SMART site (federation header, component-local nav, logo hero, docs layout, footer, design tokens)",
   "repository": {
     "type": "git",
