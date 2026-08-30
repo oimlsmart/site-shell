@@ -54,6 +54,7 @@ check(!/src:"\/smart-logo/.test(mobileNav), 'the mobile nav carries no relative 
 check(showcaseHtml.includes('tier-toggle'), 'TierToggle mounted on the showcase page')
 check(showcaseHtml.includes('component-logo'), 'ComponentLogo mounted on the showcase page')
 check(showcaseHtml.includes('DRAFT'), 'the internal banner mounted on the showcase page (<Base internal>)')
+check(showcaseHtml.includes('account-chip') && showcaseHtml.includes('account-avatar'), 'the signin slot threads the account chip into the header')
 {
   const first = docsHtml.indexOf('guides/first')
   const second = docsHtml.indexOf('guides/second')

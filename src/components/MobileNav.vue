@@ -17,9 +17,13 @@ interface Props {
   logoDark?: string
   homeHref?: string
   signInHref?: string
+  /** False when the consumer mounted an account chip in the header's
+   *  signin slot — a logged-in user must not be offered "Sign in". */
+  showSignIn?: boolean
 }
 const props = defineProps<Props>()
 const { brandName, logoLight, logoDark, homeHref, signInHref } = resolveBrand(props)
+const showSignIn = props.showSignIn ?? true
 
 const isOpen = ref(false)
 const expandedSection = ref<string | null>(null)
@@ -130,7 +134,7 @@ function toggleSection(id: string) {
             <span v-if="!isDark">☀</span>
             <span v-else>☾</span>
           </button>
-          <a :href="signInHref" class="shell-signin text-sm font-semibold text-accent">Sign in ↗</a>
+          <a v-if="showSignIn" :href="signInHref" class="shell-signin text-sm font-semibold text-accent">Sign in ↗</a>
         </div>
       </div>
     </div>

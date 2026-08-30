@@ -127,6 +127,41 @@ try {
     await ctx.close()
   }
 
+  // The account chip (the signin slot) is identity, not navigation: its
+  // avatar must stay visible at EVERY breakpoint — it used to collapse
+  // with the lg: nav, hiding the logged-in user's profile photo below
+  // 1024px — and the overlay must not offer "Sign in" to a signed-in user.
+  for (const width of [375, 900, 1280]) {
+    const ctx = await browser.newContext({ viewport: { width, height: 800 } })
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/showcase`, { waitUntil: 'load' })
+    await pg.waitForTimeout(300)
+    const avatar = await pg.evaluate(() => {
+      const el = document.querySelector('#account-avatar')
+      if (!el) return null
+      const box = el.getBoundingClientRect()
+      return { display: getComputedStyle(el).display, w: box.width, h: box.height }
+    })
+    if (avatar === null) failures.push(`account chip @${width}w: #account-avatar missing from the page (signin slot not threaded)`)
+    else if (avatar.display === 'none' || avatar.w < 24 || avatar.h < 24)
+      failures.push(`account chip @${width}w: the profile photo is not visible (${avatar.display}, ${Math.round(avatar.w)}x${Math.round(avatar.h)}) — identity UI collapsed with the nav`)
+    await ctx.close()
+  }
+  {
+    const ctx = await browser.newContext({ viewport: { width: 375, height: 700 } })
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/showcase`, { waitUntil: 'load' })
+    await pg.waitForTimeout(300)
+    await pg.getByRole('button', { name: 'Open menu' }).click()
+    const dialog = pg.locator('[role="dialog"][aria-modal="true"]')
+    const opened = await dialog.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
+    if (opened && (await dialog.locator('.shell-signin').count()) > 0)
+      failures.push('account chip: the overlay offers "Sign in" to a signed-in user (showSignIn not threaded)')
+    await ctx.close()
+  }
+
   await browser.close()
 } catch (err) {
   failures.push(`harness error: ${err.message}\nastro preview log:\n${previewLog}`)

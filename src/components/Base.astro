@@ -68,6 +68,7 @@ const FONT_URL =
     logoDark={brand.logoDark}
     homeHref={brand.homeHref}
     signInHref={brand.signInHref}
+    hasSignin={Astro.slots.has('signin')}
   >
       <!-- Forwarded WITH a fallback: an empty passthrough registers the
            slot as provided and suppresses SiteHeader's default link. -->

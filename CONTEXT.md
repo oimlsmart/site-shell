@@ -24,6 +24,11 @@ these are the domain names.
 - **Logo pair** — `.logo-light`/`.logo-dark`: shell vocabulary. The
   swap rules live once in `tokens.css`; any component rendering the
   pair inherits the correct behavior (theme contract).
+- **Account chip** — the logged-in identity affordance (profile photo +
+  name) a consumer mounts into `Base`'s `signin` slot. It is identity,
+  not navigation: it renders beside the nav and stays visible at every
+  breakpoint; the mobile overlay hides its "Sign in" link when a chip
+  is mounted (`hasSignin` threading).
 - **Theme runtime** — `src/composables/useTheme.ts`. The only owner of
   `.dark` on `<html>`: the storage key, the FOUC bootstrap string, and
   the toggle composable. The theme contract (README) bans everything
