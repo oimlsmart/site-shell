@@ -1,0 +1,16 @@
+---
+/**
+ * The AI bubble fixture — mounts Base with the assistant flag ON against
+ * a stub service origin (the render gate stubs the network), so the
+ * launcher + panel are gated like every other export. The index page
+ * stays flagless, proving the default is OFF.
+ */
+import { Base } from '@oimlsmart/site-shell'
+import '../styles/app.css'
+---
+
+<Base title="AI bubble" description="The assistant bubble fixture." aiAssistant={{ apiBase: 'https://ai-stub.invalid' }}>
+  <main class="max-w-3xl mx-auto px-6 py-16">
+    <p class="text-ink-soft">The assistant bubble fixture — the render gate stubs the AI service.</p>
+  </main>
+</Base>

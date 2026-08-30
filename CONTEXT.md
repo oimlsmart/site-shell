@@ -47,6 +47,18 @@ these are the domain names.
   chrome-export fixture page and `scripts/export-chrome.mjs`.
 - **Tier** — the SMART vs SMART+ scope split. `TierToggle` swaps
   `data-tier="smart"` / `data-tier="smartplus"` blocks on a page.
+- **AI bubble** — `AiBubble` (TODO.ai-platform/01), the estate assistant
+  embedded from the ONE component: the header icon row at lg+, a
+  floating button below lg (or always, in `standalone` mode for
+  properties with their own chrome). Opt-in per property via
+  `Base`/`SiteHeader`'s `aiAssistant` prop — absent means off.
+  Cross-host theming rides `--ai-*` variables (shell token preferred,
+  the house value as fallback), never the host's Tailwind scan.
+- **Bubble bridge** — the AI service's sign-in handoff for embedded
+  panels: `/auth/login?mode=bubble&origin=…` runs the OIDC round-trip,
+  the callback's confirm page postMessages the service session token to
+  the validated origin, and the panel sends it as `Authorization:
+  Bearer` (shared cookies are the banned anti-pattern).
 - **Trusted publishing** — the only npm publish path: push a `v*` tag,
   `release.yml` exchanges its GitHub Actions OIDC identity for a
   short-lived npm credential, publishes with provenance. No npm tokens

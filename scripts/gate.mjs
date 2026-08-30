@@ -56,6 +56,16 @@ check(showcaseHtml.includes('component-logo'), 'ComponentLogo mounted on the sho
 check(showcaseHtml.includes('DRAFT'), 'the internal banner mounted on the showcase page (<Base internal>)')
 check(showcaseHtml.includes('account-chip') && showcaseHtml.includes('account-avatar'), 'the signin slot threads the account chip into the header')
 {
+  // The AI bubble (TODO.ai-platform/01): flag-gated per property. The
+  // bubble fixture mounts it (against the stub origin); every other
+  // fixture page is flagless and must NOT carry it.
+  const bubbleHtml = read('bubble', 'index.html')
+  check(bubbleHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher compiled into the bubble fixture page')
+  check(bubbleHtml.includes('ai-stub.invalid'), 'the bubble serialized the configured service origin')
+  check(!indexHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher stays OFF by default (the flagless index page)')
+  check(!docsHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher stays OFF on the flagless docs page')
+}
+{
   const first = docsHtml.indexOf('guides/first')
   const second = docsHtml.indexOf('guides/second')
   const third = docsHtml.indexOf('guides/third')

@@ -43,10 +43,62 @@ import '../styles/app.css'
 
 | subpath | contents |
 |---|---|
-| `.` (root) | `Base`, `SiteHeader`, `SiteFooter`, `MinisiteNav`, `PageHero`, `DocsSidebar`, `InternalBanner`, `TierToggle`, `ComponentLogo`, the theme runtime (`useTheme`, `THEME_BOOTSTRAP`, …), the brand resolver (`resolveBrand`, `SITE`) |
+| `.` (root) | `Base`, `SiteHeader`, `SiteFooter`, `MinisiteNav`, `PageHero`, `DocsSidebar`, `InternalBanner`, `TierToggle`, `ComponentLogo`, `AiBubble`, the theme runtime (`useTheme`, `THEME_BOOTSTRAP`, …), the brand resolver (`resolveBrand`, `SITE`) |
 | `./components/*` | every component directly, for the subpaths the root entry doesn't name |
+| `./ai/*` | the assistant's API client + markdown-lite renderer (AiBubble's machinery) |
 | `./tokens.css` / `./blueprint.css` | the design tokens / the editorial scaffolding |
 | `./data/*` | the component registry, the nav config, site metadata — importable so federation sites re-export the ONE registry instead of carrying drift-prone copies |
+
+### The AI assistant bubble (opt-in)
+
+The estate's AI assistant (ai.oimlsmart.org) embeds as ONE component —
+never a per-app copy. Off by default; a property opts in per page shell:
+
+```astro
+<Base title="…" aiAssistant />                                 <!-- the public service -->
+<Base title="…" aiAssistant={{ apiBase: 'https://…' }} />     <!-- staging override -->
+```
+
+The launcher lands in the header's icon row at lg+ and as a floating
+button below lg; the panel is a card on desktop and a full sheet on
+small screens. Properties with their own chrome (the smart platform)
+mount the component directly in standalone mode:
+
+```astro
+---
+import { AiBubble } from '@oimlsmart/site-shell'
+---
+<AiBubble client:load mode="standalone" />
+```
+
+The contract (the honest postures the component keeps):
+
+- **Auth**: anonymous visitors get the public corpus tier, marked
+  "Anonymous — public corpus"; their conversations stay on the device
+  (localStorage), never synced. Sign-in rides the service's bubble
+  bridge (`/auth/login?mode=bubble&origin=…` on the AI service — the
+  OIDC round-trip, then a confirm page hands the service's session token
+  to this origin by postMessage; the estate bans shared cookies, so the
+  token rides as `Authorization: Bearer`, held in sessionStorage).
+  Signed-in members get their synced conversation list — the same
+  sessions ai.oimlsmart.org shows.
+- **Answers** stream from `POST /api/ask` (SSE citations → tokens →
+  done) and render markdown-lite — an escape-first renderer; model
+  output can never inject markup. Citations render as cards linking the
+  source publication; a superseded source is marked.
+- **Theming**: every color rides an `--ai-*` custom property that
+  prefers the shell token and falls back to the house value, so the
+  component is dark-correct on hosts without tokens.css (the platform's
+  own palette). Layout is the component's own plain CSS — the host's
+  Tailwind scan is never required.
+- The chrome-export artifact (foreign sites) does NOT carry the bubble —
+  it is static HTML; the assistant is an island.
+
+The gate covers it: the flagged fixture page proves the launcher
+compiles, the flagless pages prove the default is off, and the render
+gate drives the panel against a stubbed service (the streamed answer,
+the citation card, an XSS payload staying inert, the bridge sign-in, the
+member conversation list, the mobile sheet, the 44px floor, Esc).
 
 ### Brand overrides
 
