@@ -159,6 +159,7 @@ try {
     const opened = await dialog.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
     if (opened && (await dialog.locator('.shell-signin').count()) > 0)
       failures.push('account chip: the overlay offers "Sign in" to a signed-in user (showSignIn not threaded)')
+    await ctx.close()
   }
 
   // ── The AI bubble (TODO.ai-platform/01) — the panel path against a
