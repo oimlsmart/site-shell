@@ -15,7 +15,7 @@ import { THEME_STORAGE_KEY, THEME_CLASS } from '@oimlsmart/site-shell/data/theme
 
 const PORT = 4173
 const BASE = `http://127.0.0.1:${PORT}`
-const PAGES = ['/', '/showcase', '/docs']
+const PAGES = ['/', '/showcase', '/docs', '/bubble']
 
 function waitForPort(port, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
@@ -159,6 +159,104 @@ try {
     const opened = await dialog.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
     if (opened && (await dialog.locator('.shell-signin').count()) > 0)
       failures.push('account chip: the overlay offers "Sign in" to a signed-in user (showSignIn not threaded)')
+  }
+
+  // ── The AI bubble (TODO.ai-platform/01) — the panel path against a
+  // STUBBED service (ai-stub.invalid): the streamed answer renders, the
+  // citation card renders, the XSS payload stays inert, the anonymous
+  // posture is marked, Esc closes, the 44px floor holds. ──
+  {
+    const expect = (ok, msg) => { if (!ok) failures.push(`bubble: ${msg}`) }
+    const sse = [
+      `data: {"type":"citations","citations":[{"docidentifier":"OIML R 60:2017","edition":"2017","clause_title":"Metrological requirements","status":"in-force","url":"https://www.oiml.org/en/publications/r60"}],"quota":{"used":1,"limit":20}}`,
+      `data: {"type":"token","v":"R 60 covers **load cells**."}`,
+      `data: {"type":"token","v":"<img src=x onerror=window.__xssFired=1>"}`,
+      `data: {"type":"done","query_hash":"abcdef0123456789","follow_ups":["What is accuracy class C3?"],"model":"stub-model"}`,
+      ``,
+    ].join('\n\n')
+
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    // The stub service: ask streams; conversations is member-gated (401);
+    // the bridge login popup hands a session token via postMessage, then
+    // /auth/me + the conversations list answer as the member.
+    await ctx.route('https://ai-stub.invalid/api/ask', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse }))
+    await ctx.route('https://ai-stub.invalid/api/conversations', (route) => {
+      const auth = route.request().headers()['authorization']
+      if (!auth) return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unauthorized', message: 'Sign in to sync your conversations across devices' } }) })
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ conversations: [{ id: 'conv-member-1', title: 'The platform question', updated_at: '2026-08-30T00:00:00Z', messages: 2 }] }) })
+    })
+    await ctx.route('https://ai-stub.invalid/auth/me', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, name: 'R. Tse', email: 'r.tse@example.org', roles: [], tier: 'member', sign_in_available: true }) }))
+    await ctx.route('https://ai-stub.invalid/auth/login*', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: `<!DOCTYPE html><title>stub confirm</title><script>
+          window.opener && window.opener.postMessage({ type: 'oimlsmart-ai-session', token: 'stub-token', name: 'R. Tse', expiresAt: Date.now() + 86400000 }, ${JSON.stringify(BASE)})
+        </script>`,
+      }))
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
+    await pg.waitForTimeout(400) // the island hydrates
+
+    const launcher = pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first()
+    expect(await launcher.isVisible(), 'the launcher is visible on the flagged page (desktop: the header icon)')
+    const box = await launcher.boundingBox()
+    expect(!!box && box.width >= 44 && box.height >= 44, `the launcher honors the 44px touch floor (${box ? `${Math.round(box.width)}×${Math.round(box.height)}` : 'no box'})`)
+    await launcher.click()
+    const panel = pg.locator('#ai-bubble-panel[role="dialog"]')
+    expect(await panel.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the panel opens as a labelled dialog')
+    expect(await panel.getByText('Anonymous — public corpus').isVisible().catch(() => false), 'the anonymous posture is honestly marked')
+
+    await pg.getByLabel('Your question').fill('What does R 60 cover?')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    expect(await panel.getByText('R 60 covers').waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the streamed answer renders')
+    expect(await panel.locator('.ai-md strong', { hasText: 'load cells' }).count() === 1, 'the answer markdown renders (bold)')
+    expect(await panel.getByText('<img src=x onerror=window.__xssFired=1>').count() === 1, 'the XSS payload renders as inert text')
+    expect(await pg.evaluate(() => window.__xssFired === undefined), 'the XSS payload never executed')
+    expect(await panel.locator('img[src="x"]').count() === 0, 'no injected element landed in the DOM')
+    expect(await panel.getByText('OIML R 60:2017').isVisible().catch(() => false), 'the citation card renders the docidentifier')
+    expect(await panel.getByText('Metrological requirements').isVisible().catch(() => false), 'the citation card renders the clause title')
+    expect(await panel.getByRole('button', { name: 'What is accuracy class C3?' }).isVisible().catch(() => false), 'the follow-up chip renders')
+
+    // Esc closes; focus returns to the launcher
+    await pg.keyboard.press('Escape')
+    await pg.waitForTimeout(300)
+    expect(await panel.isVisible().catch(() => false) === false, 'Escape closes the panel')
+
+    // The member bridge: the sessions view signs in via the popup, then
+    // the server conversation list renders.
+    await launcher.click()
+    await panel.getByRole('button', { name: 'Conversations' }).click()
+    const popupPromise = pg.waitForEvent('popup')
+    await panel.getByRole('button', { name: 'Sign in to sync conversations' }).click()
+    const popup = await popupPromise
+    await popup.waitForLoadState()
+    expect(await panel.getByText('Signed in as R. Tse').first().waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the bridge sign-in lands the member session')
+    expect(await panel.getByText('The platform question').waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the member conversation list renders from the service')
+    await ctx.close()
+  }
+
+  // The bubble on a small screen: the FAB carries the launch, the panel
+  // is a full sheet.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 375, height: 700 } })
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    await ctx.route('https://ai-stub.invalid/**', (route) => route.fulfill({ status: 500, body: 'stub' }))
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
+    await pg.waitForTimeout(400)
+    const fab = pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first()
+    if (!(await fab.isVisible().catch(() => false))) failures.push('bubble mobile: the floating launcher is not visible')
+    else {
+      await fab.click()
+      const panel = pg.locator('#ai-bubble-panel')
+      const box = await panel.boundingBox()
+      if (!box || Math.abs(box.width - 375) > 2 || Math.abs(box.height - 700) > 2)
+        failures.push(`bubble mobile: the panel is not a full sheet (${box ? `${Math.round(box.width)}×${Math.round(box.height)}` : 'no box'})`)
+    }
     await ctx.close()
   }
 
@@ -174,4 +272,4 @@ if (failures.length) {
   for (const f of failures) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`render check passed: ${PAGES.length} page(s) × light + dark lay out, the logos swap, the mobile dialog opens and Esc-closes, screenshots in artifacts/`)
+console.log(`render check passed: ${PAGES.length} page(s) × light + dark lay out, the logos swap, the mobile dialog opens and Esc-closes, the AI bubble answers against the stub with citations + the XSS payload inert, screenshots in artifacts/`)

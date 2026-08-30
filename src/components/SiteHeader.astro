@@ -9,6 +9,7 @@ import MobileNav from './MobileNav.vue'
 import NavDropdown from './NavDropdown.vue'
 import SearchBox from './SearchBox.vue'
 import ThemeToggle from './ThemeToggle.vue'
+import AiBubble from './AiBubble.vue'
 import { NAV_ITEMS, isLinkActive } from '../data/nav-config'
 import { resolveBrand, frontDoor, type BrandProps } from '../data/site-meta'
 
@@ -17,10 +18,17 @@ interface Props extends BrandProps {
    *  chip) — Base threads this so the mobile overlay can drop its
    *  logged-out "Sign in" link. */
   hasSignin?: boolean
+  /** The AI assistant bubble (TODO.ai-platform/01) — OFF unless the
+   *  consuming property opts in. `true` mounts it against the public
+   *  service; the object form overrides the service origin (staging)
+   *  and the answer-language hint. */
+  aiAssistant?: boolean | { apiBase?: string; lang?: string }
 }
 const brand = resolveBrand(Astro.props)
 const { hasSignin = true } = Astro.props
 const path = Astro.url.pathname
+const ai = Astro.props.aiAssistant
+const aiConfig = ai && typeof ai === 'object' ? ai : {}
 ---
 
 <header class="site-nav sticky top-0 z-[100] bg-paper-soft dark:bg-paper-deep border-b border-rule">
@@ -44,6 +52,7 @@ const path = Astro.url.pathname
         ))}
         <SearchBox client:idle />
         <ThemeToggle client:load />
+        {ai && <AiBubble client:load mode="chrome" apiBase={aiConfig.apiBase} lang={aiConfig.lang} />}
       </nav>
       <!-- Identity, not navigation: the account chip (or the default
            sign-in link) stays visible at EVERY breakpoint — it never

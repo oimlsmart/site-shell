@@ -30,8 +30,12 @@ interface Props {
   internal?: boolean
   /** The html lang attribute — bilingual minisites pass their page locale. */
   lang?: string
+  /** The AI assistant bubble (TODO.ai-platform/01) — off by default; the
+   *  consuming property opts in (`true`) or overrides the service origin
+   *  (`{ apiBase }`) for staging. */
+  aiAssistant?: boolean | { apiBase?: string; lang?: string }
 }
-const { title, description, siteTitle = SITE.title, internal = false, lang = SITE.lang } = Astro.props
+const { title, description, siteTitle = SITE.title, internal = false, lang = SITE.lang, aiAssistant = false } = Astro.props
 const brand = resolveBrand(Astro.props)
 const pageTitle = title ? `${title} | ${siteTitle}` : siteTitle
 
@@ -69,6 +73,7 @@ const FONT_URL =
     homeHref={brand.homeHref}
     signInHref={brand.signInHref}
     hasSignin={Astro.slots.has('signin')}
+    aiAssistant={aiAssistant}
   >
       <!-- Forwarded WITH a fallback: an empty passthrough registers the
            slot as provided and suppresses SiteHeader's default link. -->
