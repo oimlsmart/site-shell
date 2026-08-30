@@ -111,10 +111,12 @@ to send.
 
 **The page-context seam** — how a host page tells the panel what it is
 and what it carries — is `src/ai/context.ts`
-(`@oimlsmart/site-shell/ai/context.ts`):
+(`@oimlsmart/site-shell/ai/context` — the extensionless subpath, an
+explicit `exports` entry: strict TypeScript consumers resolve it, and
+the `.ts`-suffixed wildcard form breaks them):
 
 ```ts
-import { publishAiContext } from '@oimlsmart/site-shell/ai/context.ts'
+import { publishAiContext } from '@oimlsmart/site-shell/ai/context'
 
 // on mount + whenever the route or the loaded entity changes:
 publishAiContext({

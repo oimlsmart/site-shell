@@ -14,6 +14,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./components/*": "./src/components/*",
+    "./ai/context": "./src/ai/context.ts",
     "./ai/*": "./src/ai/*",
     "./tokens.css": "./src/styles/tokens.css",
     "./data/*": "./src/data/*",
