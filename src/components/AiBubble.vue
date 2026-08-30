@@ -53,10 +53,15 @@ interface Props {
   mode?: 'chrome' | 'standalone'
   /** BCP-47 two-letter hint for the answer language (the corpus carries 10). */
   lang?: string
+  /** The FAB's bottom offset (CSS length) — a host with its own
+   *  bottom-right affordance (the platform's Reference pill) lifts the
+   *  launcher clear of it. */
+  fabBottom?: string
 }
 const props = withDefaults(defineProps<Props>(), {
   apiBase: 'https://ai.oimlsmart.org',
   mode: 'standalone',
+  fabBottom: '1rem',
 })
 
 const open = ref(false)
@@ -445,6 +450,7 @@ onBeforeUnmount(() => {
         type="button"
         class="ai-bubble-root ai-launcher ai-launcher--fab"
         :class="`ai-bubble--${props.mode}`"
+        :style="{ bottom: props.fabBottom }"
         :aria-expanded="open"
         aria-controls="ai-bubble-panel"
         aria-label="Open the OIML SMART AI assistant"
