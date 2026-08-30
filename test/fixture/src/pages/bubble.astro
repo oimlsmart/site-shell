@@ -3,14 +3,25 @@
  * The AI bubble fixture — mounts Base with the assistant flag ON against
  * a stub service origin (the render gate stubs the network), so the
  * launcher + panel are gated like every other export. The index page
- * stays flagless, proving the default is OFF.
+ * stays flagless, proving the default is OFF. The context chips
+ * (TODO.ai-platform/02) are ON here, and the page publishes its context
+ * through the seam (src/ai/context.ts) the way a real property's pages
+ * do — a page name plus a carried entity.
  */
 import { Base } from '@oimlsmart/site-shell'
 import '../styles/app.css'
 ---
 
-<Base title="AI bubble" description="The assistant bubble fixture." aiAssistant={{ apiBase: 'https://ai-stub.invalid' }}>
+<Base title="AI bubble" description="The assistant bubble fixture." aiAssistant={{ apiBase: 'https://ai-stub.invalid', contextChips: true }}>
   <main class="max-w-3xl mx-auto px-6 py-16">
     <p class="text-ink-soft">The assistant bubble fixture — the render gate stubs the AI service.</p>
   </main>
 </Base>
+
+<script>
+  import { publishAiContext } from '@oimlsmart/site-shell/ai/context.ts'
+  publishAiContext({
+    page: 'the bubble fixture',
+    entity: { kind: 'certificate', label: 'R60/2021-A-EX1-26.01', doc: 'urn:oiml:pub:r:60-1:2021' },
+  })
+</script>

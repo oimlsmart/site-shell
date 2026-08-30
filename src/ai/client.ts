@@ -10,7 +10,14 @@
  * the SameSite=Lax cookie never crosses origins and the estate bans
  * shared-domain cookies (the identity guide's SSO doctrine). Anonymous
  * callers send no token and get the public/anonymous tier.
+ *
+ * TODO.ai-platform/02: the ask body carries the declared context (the
+ * panel's opt-in chips — see ./context.ts) and every response echoes
+ * `context_applied`, which the panel records on the answer message so
+ * the honest context line survives a resume.
  */
+
+import type { AiAskContext, AiContextApplied } from './context'
 
 export interface AiCitation {
   doc_id?: string
@@ -34,6 +41,12 @@ export interface AiMessage {
   citations?: AiCitation[] | null
   model?: string
   followUps?: string[]
+  /** the context the service APPLIED to this answer (the honest context
+   *  line's source); undefined on messages recorded before the chips */
+  contextApplied?: AiContextApplied | null
+  /** a chip was declared but the answer carried no echo (the service
+   *  predates contexts) — the line says so rather than claiming it */
+  contextUnapplied?: boolean
   at: number
 }
 
@@ -56,9 +69,9 @@ export interface AiQuota {
 }
 
 export interface AskEvents {
-  onCitations?: (citations: AiCitation[], quota?: AiQuota) => void
+  onCitations?: (citations: AiCitation[], quota?: AiQuota, contextApplied?: AiContextApplied) => void
   onToken?: (token: string) => void
-  onDone?: (info: { queryHash: string | null; followUps: string[]; model?: string }) => void
+  onDone?: (info: { queryHash: string | null; followUps: string[]; model?: string; contextApplied?: AiContextApplied }) => void
 }
 
 export type AskResult =
@@ -71,12 +84,29 @@ function authHeaders(token: string | null): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {}
 }
 
+/** Validate the service's context_applied echo — bounded, shape-checked,
+ *  never trusted blindly (the honest context line renders from THIS). */
+function asApplied(v: unknown): AiContextApplied | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const k = (v as { kind?: unknown }).kind
+  if (k !== 'page' && k !== 'entity' && k !== 'document' && k !== 'none') return undefined
+  const label = typeof (v as { label?: unknown }).label === 'string' ? ((v as { label: string }).label).slice(0, 120) : undefined
+  const scoped = (v as { scoped_to?: unknown }).scoped_to
+  const note = (v as { note?: unknown }).note
+  return {
+    kind: k,
+    ...(label ? { label } : {}),
+    scoped_to: typeof scoped === 'string' ? scoped.slice(0, 80) : null,
+    ...(note === 'document-not-in-corpus' || note === 'question-document-wins' ? { note } : {}),
+  }
+}
+
 /** POST /api/ask with stream:true; the service may answer with SSE or a
  *  plain JSON body (the cached path), both are handled. */
 export async function ask(
   apiBase: string,
   token: string | null,
-  body: { query: string; history?: { role: string; content: string }[]; conversation_id?: string; lang?: string },
+  body: { query: string; history?: { role: string; content: string }[]; conversation_id?: string; lang?: string; context?: AiAskContext },
   ev: AskEvents,
   signal?: AbortSignal,
 ): Promise<AskResult> {
@@ -85,7 +115,7 @@ export async function ask(
     res = await fetch(`${apiBase}/api/ask`, {
       method: 'POST',
       headers: { ...JSON_HEADERS, ...authHeaders(token) },
-      body: JSON.stringify({ query: body.query, history: body.history, conversation_id: body.conversation_id, lang: body.lang, stream: true }),
+      body: JSON.stringify({ query: body.query, history: body.history, conversation_id: body.conversation_id, lang: body.lang, context: body.context, stream: true }),
       signal,
     })
   } catch (e: unknown) {
@@ -103,12 +133,14 @@ export async function ask(
   const ct = res.headers.get('content-type') ?? ''
   if (ct.includes('application/json')) {
     const data = await res.json().catch(() => null)
-    if (Array.isArray(data?.citations)) ev.onCitations?.(data.citations, data.quota)
+    const applied = asApplied(data?.context_applied)
+    if (Array.isArray(data?.citations)) ev.onCitations?.(data.citations, data.quota, applied)
     if (typeof data?.answer === 'string') ev.onToken?.(data.answer)
     ev.onDone?.({
       queryHash: typeof data?.query_hash === 'string' ? data.query_hash : null,
       followUps: Array.isArray(data?.follow_ups) ? data.follow_ups.filter((s: unknown) => typeof s === 'string') : [],
       model: typeof data?.model === 'string' ? data.model : undefined,
+      contextApplied: applied,
     })
     return { ok: true }
   }
@@ -117,6 +149,7 @@ export async function ask(
   if (!reader) return { ok: false, message: 'The assistant answered in an unreadable form.' }
   const decoder = new TextDecoder()
   let buf = ''
+  let streamApplied: AiContextApplied | undefined
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
@@ -133,7 +166,8 @@ export async function ask(
         continue
       }
       if (evt.type === 'citations') {
-        ev.onCitations?.(Array.isArray(evt.citations) ? (evt.citations as AiCitation[]) : [], evt.quota as AiQuota | undefined)
+        streamApplied = asApplied(evt.context_applied) ?? streamApplied
+        ev.onCitations?.(Array.isArray(evt.citations) ? (evt.citations as AiCitation[]) : [], evt.quota as AiQuota | undefined, streamApplied)
       } else if (evt.type === 'token') {
         if (typeof evt.v === 'string') ev.onToken?.(evt.v)
       } else if (evt.type === 'done') {
@@ -141,6 +175,7 @@ export async function ask(
           queryHash: typeof evt.query_hash === 'string' ? evt.query_hash : null,
           followUps: Array.isArray(evt.follow_ups) ? (evt.follow_ups as unknown[]).filter((s): s is string => typeof s === 'string') : [],
           model: typeof evt.model === 'string' ? evt.model : undefined,
+          contextApplied: asApplied(evt.context_applied) ?? streamApplied,
         })
       } else if (evt.type === 'error') {
         return { ok: false, message: typeof evt.message === 'string' ? evt.message : 'The answer stream failed.' }
@@ -198,6 +233,7 @@ export async function getConversation(apiBase: string, token: string, id: string
         content: m.content as string,
         citations: Array.isArray(m.citations) ? (m.citations as AiCitation[]) : null,
         model: typeof m.model === 'string' ? m.model : undefined,
+        contextApplied: asApplied(m.context_applied) ?? null,
         at: Date.parse(String(m.at ?? '')) || 0,
       }))
     return { title: typeof data.conversation.title === 'string' ? data.conversation.title : 'Untitled conversation', messages }
@@ -210,13 +246,13 @@ export async function appendMessage(
   apiBase: string,
   token: string,
   conversationId: string,
-  msg: { role: 'user' | 'assistant'; content: string; citations?: AiCitation[] | null; model?: string },
+  msg: { role: 'user' | 'assistant'; content: string; citations?: AiCitation[] | null; model?: string; contextApplied?: AiContextApplied | null },
 ): Promise<boolean> {
   try {
     const res = await fetch(`${apiBase}/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
       method: 'POST',
       headers: { ...JSON_HEADERS, ...authHeaders(token) },
-      body: JSON.stringify({ role: msg.role, content: msg.content, citations: msg.citations ?? undefined, model: msg.model }),
+      body: JSON.stringify({ role: msg.role, content: msg.content, citations: msg.citations ?? undefined, model: msg.model, context_applied: msg.contextApplied ?? undefined }),
     })
     return res.ok
   } catch {

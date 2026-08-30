@@ -32,8 +32,9 @@ interface Props {
   lang?: string
   /** The AI assistant bubble (TODO.ai-platform/01) — off by default; the
    *  consuming property opts in (`true`) or overrides the service origin
-   *  (`{ apiBase }`) for staging. */
-  aiAssistant?: boolean | { apiBase?: string; lang?: string }
+   *  (`{ apiBase }`) for staging. `contextChips` (TODO.ai-platform/02)
+   *  opts into the opt-in context chips + the honest context line. */
+  aiAssistant?: boolean | { apiBase?: string; lang?: string; contextChips?: boolean }
 }
 const { title, description, siteTitle = SITE.title, internal = false, lang = SITE.lang, aiAssistant = false } = Astro.props
 const brand = resolveBrand(Astro.props)

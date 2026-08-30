@@ -162,27 +162,45 @@ try {
     await ctx.close()
   }
 
-  // ── The AI bubble (TODO.ai-platform/01) — the panel path against a
-  // STUBBED service (ai-stub.invalid): the streamed answer renders, the
+  // ── The AI bubble (TODO.ai-platform/01 + /02) — the panel path against
+  // a STUBBED service (ai-stub.invalid): the streamed answer renders, the
   // citation card renders, the XSS payload stays inert, the anonymous
-  // posture is marked, Esc closes, the 44px floor holds. ──
+  // posture is marked, Esc closes, the 44px floor holds — and the context
+  // chips: the availability rules, the per-message declaration on the ask
+  // body, the honest context line from the echo, the mid-session change. ──
   {
     const expect = (ok, msg) => { if (!ok) failures.push(`bubble: ${msg}`) }
-    const sse = [
-      `data: {"type":"citations","citations":[{"docidentifier":"OIML R 60:2017","edition":"2017","clause_title":"Metrological requirements","status":"in-force","url":"https://www.oiml.org/en/publications/r60"}],"quota":{"used":1,"limit":20}}`,
-      `data: {"type":"token","v":"R 60 covers **load cells**."}`,
-      `data: {"type":"token","v":"<img src=x onerror=window.__xssFired=1>"}`,
-      `data: {"type":"done","query_hash":"abcdef0123456789","follow_ups":["What is accuracy class C3?"],"model":"stub-model"}`,
-      ``,
-    ].join('\n\n')
+    // The stub echoes context_applied from the DECLARED context (the
+    // service's contract, docs/API.md §2.1.1 in the rag repo): none when
+    // nothing was declared; the not-in-corpus note for a 999 document;
+    // scoped_to when a resolvable doc rode along.
+    const asked = []
+    const sseFor = (body) => {
+      const c = body.context
+      const applied = !c
+        ? { kind: 'none', scoped_to: null }
+        : c.doc && String(c.doc).includes('999')
+          ? { kind: c.kind, label: c.label, scoped_to: null, note: 'document-not-in-corpus' }
+          : { kind: c.kind, label: c.label, scoped_to: c.doc ? 'OIML R 60:2021' : null }
+      return [
+        `data: ${JSON.stringify({ type: 'citations', citations: [{ docidentifier: 'OIML R 60:2017', edition: '2017', clause_title: 'Metrological requirements', status: 'in-force', url: 'https://www.oiml.org/en/publications/r60' }], quota: { used: 1, limit: 20 }, context_applied: applied })}`,
+        `data: {"type":"token","v":"R 60 covers **load cells**."}`,
+        `data: {"type":"token","v":"<img src=x onerror=window.__xssFired=1>"}`,
+        `data: ${JSON.stringify({ type: 'done', query_hash: 'abcdef0123456789', follow_ups: ['What is accuracy class C3?'], model: 'stub-model', context_applied: applied })}`,
+        ``,
+      ].join('\n\n')
+    }
 
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
     await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
     // The stub service: ask streams; conversations is member-gated (401);
     // the bridge login popup hands a session token via postMessage, then
     // /auth/me + the conversations list answer as the member.
-    await ctx.route('https://ai-stub.invalid/api/ask', (route) =>
-      route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse }))
+    await ctx.route('https://ai-stub.invalid/api/ask', (route) => {
+      const body = JSON.parse(route.request().postData() ?? '{}')
+      asked.push(body)
+      return route.fulfill({ status: 200, contentType: 'text/event-stream', body: sseFor(body) })
+    })
     await ctx.route('https://ai-stub.invalid/api/conversations', (route) => {
       const auth = route.request().headers()['authorization']
       if (!auth) return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unauthorized', message: 'Sign in to sync your conversations across devices' } }) })
@@ -221,6 +239,54 @@ try {
     expect(await panel.getByText('OIML R 60:2017').isVisible().catch(() => false), 'the citation card renders the docidentifier')
     expect(await panel.getByText('Metrological requirements').isVisible().catch(() => false), 'the citation card renders the clause title')
     expect(await panel.getByRole('button', { name: 'What is accuracy class C3?' }).isVisible().catch(() => false), 'the follow-up chip renders')
+
+    // ── TODO.ai-platform/02: the context chips ──
+    // The row offers what the page published — the fixture publishes a
+    // page name + an entity — and None is the default, never ambient.
+    const chipNone = panel.getByRole('button', { name: 'None', exact: true })
+    const chipPage = panel.getByRole('button', { name: 'This page — the bubble fixture' })
+    const chipEntity = panel.getByRole('button', { name: 'This certificate — R60/2021-A-EX1-26.01' })
+    const chipDoc = panel.getByRole('button', { name: 'A document…' })
+    expect(await chipNone.isVisible().catch(() => false), 'the None chip renders')
+    expect((await chipNone.getAttribute('aria-pressed')) === 'true', 'None is the default selection (the panel opens there)')
+    expect(await chipPage.isVisible().catch(() => false), 'the page chip renders with the published plain name')
+    expect(await chipEntity.isVisible().catch(() => false), 'the entity chip renders with the published entity label')
+    expect(await chipDoc.isVisible().catch(() => false), 'the document chip renders')
+    // the first answer (no chip picked) declared nothing and says so
+    expect(asked.length === 1 && !('context' in asked[0]), 'no context rides a message the user did not pick')
+    expect(await panel.locator('.ai-context-line').first().textContent().then((t) => t?.includes('context: none (general corpus)')).catch(() => false), 'the honest context line: none (general corpus)')
+
+    // Tap the entity chip → the NEXT message declares it; the echo's
+    // honest line lands on THAT answer; the first answer keeps its own
+    // line (the mid-session change is per message).
+    await chipEntity.click()
+    expect((await chipEntity.getAttribute('aria-pressed')) === 'true', 'the entity chip selects on tap')
+    await pg.getByLabel('Your question').fill('What are its metrological requirements?')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    await panel.getByText('context: this certificate R60/2021-A-EX1-26.01').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    expect(asked.length === 2 && asked[1].context?.kind === 'entity', 'the entity declaration rides the ask')
+    expect(asked[1].context?.label === 'this certificate R60/2021-A-EX1-26.01' && asked[1].context?.doc === 'urn:oiml:pub:r:60-1:2021', 'the entity declaration names the entity + the governing publication')
+    expect(await panel.getByText('context: this certificate R60/2021-A-EX1-26.01').isVisible().catch(() => false), 'the honest context line on the entity-grounded answer')
+    const lines = await panel.locator('.ai-context-line').allInnerTexts()
+    expect(lines.length === 2 && lines[0].includes('none (general corpus)') && lines[1].includes('this certificate'), 'the transcript marks the context per answer across the mid-session change')
+
+    // The document picker: pick a document the corpus doesn't carry →
+    // the echo's note renders the honest degradation.
+    await chipDoc.click()
+    await pg.locator('#ai-docpick-input').fill('OIML R 999')
+    await pg.getByRole('button', { name: 'Pick' }).click()
+    expect(await panel.getByRole('button', { name: 'A document — OIML R 999' }).isVisible().catch(() => false), 'the picked document names the chip')
+    await pg.getByLabel('Your question').fill('What does it require?')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    await panel.getByText(/not in the corpus/).waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    expect(asked.length === 3 && asked[2].context?.kind === 'document' && asked[2].context?.doc === 'OIML R 999', 'the document declaration rides the ask')
+    expect(await panel.getByText(/context: OIML R 999 \(not in the corpus — the general corpus answered\)/).isVisible().catch(() => false), 'the honest degradation line renders from the echo note')
+
+    // The chips degrade honestly: the page unpublishes the entity → the
+    // entity chip leaves the row.
+    await pg.evaluate(() => window.dispatchEvent(new CustomEvent('oimlsmart:ai-context', { detail: { page: 'the bubble fixture' } })))
+    await pg.waitForTimeout(200)
+    expect((await panel.getByRole('button', { name: /This certificate/ }).count()) === 0, 'the entity chip disappears when the page stops carrying the entity')
 
     // Esc closes; focus returns to the launcher
     await pg.keyboard.press('Escape')

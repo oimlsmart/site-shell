@@ -45,7 +45,7 @@ import '../styles/app.css'
 |---|---|
 | `.` (root) | `Base`, `SiteHeader`, `SiteFooter`, `MinisiteNav`, `PageHero`, `DocsSidebar`, `InternalBanner`, `TierToggle`, `ComponentLogo`, `AiBubble`, the theme runtime (`useTheme`, `THEME_BOOTSTRAP`, …), the brand resolver (`resolveBrand`, `SITE`) |
 | `./components/*` | every component directly, for the subpaths the root entry doesn't name |
-| `./ai/*` | the assistant's API client + markdown-lite renderer (AiBubble's machinery) |
+| `./ai/*` | the assistant's API client + markdown-lite renderer + the page-context contract (AiBubble's machinery) |
 | `./tokens.css` / `./blueprint.css` | the design tokens / the editorial scaffolding |
 | `./data/*` | the component registry, the nav config, site metadata — importable so federation sites re-export the ONE registry instead of carrying drift-prone copies |
 
@@ -94,11 +94,63 @@ The contract (the honest postures the component keeps):
 - The chrome-export artifact (foreign sites) does NOT carry the bubble —
   it is static HTML; the assistant is an island.
 
+#### The context chips (TODO.ai-platform/02)
+
+Opt-in per property (`aiAssistant={{ contextChips: true }}` — or the
+`contextChips` prop on a direct `AiBubble` mount), and opt-in per
+message INSIDE the panel: the chips above the composer present what is
+available — **This page** (the route's plain name), **This entity**
+(only when the page carries one; the chip names it), **A document…**
+(a small picker for a corpus reference), **None** (the default; the
+panel opens there). Tap includes, tap drops, changeable per message
+mid-session; nothing the user didn't pick ever rides a message. Every
+answer carries the honest context line ("context: this certificate
+R60/2021-A-EX1-26.01" / "context: none (general corpus)"), computed from
+the service's `context_applied` echo — never from what the panel wished
+to send.
+
+**The page-context seam** — how a host page tells the panel what it is
+and what it carries — is `src/ai/context.ts`
+(`@oimlsmart/site-shell/ai/context.ts`):
+
+```ts
+import { publishAiContext } from '@oimlsmart/site-shell/ai/context.ts'
+
+// on mount + whenever the route or the loaded entity changes:
+publishAiContext({
+  page: 'the IA console',                    // the route's plain name
+  entity: {                                  // only when the page carries one
+    kind: 'certificate',                     // display kind
+    label: 'R60/2021-A-EX1-26.01',           // the display label
+    id: '…',                                 // the platform's entity id
+    doc: 'urn:oiml:pub:r:60-1:2021',         // the governing publication, when known
+    edition: '2021',
+  },
+})
+publishAiContext(null)                       // nothing to say (clears)
+```
+
+The helper mirrors the payload onto `<html data-ai-context="…">` (the
+current truth a late-hydrating panel reads) AND dispatches the
+`oimlsmart:ai-context` window event (live updates to a mounted panel).
+A page that publishes nothing offers This page (named from the document
+title) + A document… + None — no entity in view, no entity chip.
+
+The wire shape the panel sends (`context` on `POST /api/ask`) and the
+echo it renders (`context_applied`) are the AI service's contract — the
+rag repo's `docs/API.md` §2.1.1. The entity's OWN DATA never rides the
+declaration: the grounding is the governing publication's clauses (the
+live-data exchange is wave 03).
+
 The gate covers it: the flagged fixture page proves the launcher
 compiles, the flagless pages prove the default is off, and the render
 gate drives the panel against a stubbed service (the streamed answer,
 the citation card, an XSS payload staying inert, the bridge sign-in, the
-member conversation list, the mobile sheet, the 44px floor, Esc).
+member conversation list, the mobile sheet, the 44px floor, Esc — and
+the chips: the availability rules, the per-message declaration on the
+ask body, the honest context line across a mid-session change, the
+not-in-corpus degradation, the entity chip leaving when the page stops
+carrying the entity).
 
 ### Brand overrides
 
