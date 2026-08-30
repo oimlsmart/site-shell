@@ -22,8 +22,17 @@
  *   GET  {apiBase}/auth/login?mode=bubble&origin=… — the sign-in bridge
  * Anonymous callers get the public/anonymous tier, honestly marked;
  * their history stays on the device (localStorage), never synced.
+ *
+ * TODO.ai-platform/02 (the `contextChips` prop, default off until the
+ * wave's eval legs are green): the opt-in context chips above the
+ * composer — This page / This entity (only when the page publishes one)
+ * / A document… / None (the default; the panel opens here). The pages
+ * publish their context through src/ai/context.ts (the attribute mirror
+ * + the window event — the documented seam). The declaration rides the
+ * ask; the service's context_applied echo renders as the honest context
+ * line on EVERY answer, so the line never invents a grounding.
  */
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   appendMessage,
   ask,
@@ -43,6 +52,14 @@ import {
   type AiQuota,
   type AiSession,
 } from '../ai/client'
+import {
+  AI_CONTEXT_EVENT,
+  contextLine,
+  readPublishedContext,
+  type AiAskContext,
+  type AiContextApplied,
+  type AiPageContext,
+} from '../ai/context'
 import { renderMarkdownLite } from '../ai/markdown'
 
 interface Props {
@@ -57,11 +74,16 @@ interface Props {
    *  bottom-right affordance (the platform's Reference pill) lifts the
    *  launcher clear of it. */
   fabBottom?: string
+  /** TODO.ai-platform/02: the opt-in context chips + the honest context
+   *  line. Off by default until the wave's eval legs are green — a
+   *  property opts in via its mount flag. */
+  contextChips?: boolean
 }
 const props = withDefaults(defineProps<Props>(), {
   apiBase: 'https://ai.oimlsmart.org',
   mode: 'standalone',
   fabBottom: '1rem',
+  contextChips: false,
 })
 
 const open = ref(false)
@@ -93,6 +115,95 @@ const statusLine = ref('')
 /** conversation_id for the service's cross-turn entity memory — the
  *  server id for members, a stable random local id for anonymous. */
 const memoryId = ref<string | null>(null)
+
+// ── the context chips (TODO.ai-platform/02) ──
+// Opt-in, never ambient: the selection defaults to 'none' (the panel
+// opens here) and rides ONE message at a time — sticky for convenience,
+// changeable mid-session, never a session-level lock-in. The page
+// publishes what it is + what it carries through src/ai/context.ts; a
+// page publishing nothing offers This page (named from the document
+// title) + A document… + None. No entity in view → no entity chip.
+const published = ref<AiPageContext | null>(null)
+const chip = ref<'none' | 'page' | 'entity' | 'document'>('none')
+const docPick = ref('')
+const pickerOpen = ref(false)
+const pickerDraft = ref('')
+/** the context_applied echo for the answer currently streaming */
+const pendingApplied = ref<AiContextApplied | undefined>(undefined)
+
+const entityRef = computed(() => published.value?.entity ?? null)
+const pageLabel = computed(
+  () =>
+    published.value?.page?.trim() ||
+    (typeof document !== 'undefined' ? document.title.replace(/\s*[|–—-]\s*OIML.*$/, '').trim() : '') ||
+    'this page',
+)
+const pageChipLabel = computed(() => `This page — ${pageLabel.value}`)
+const entityChipLabel = computed(() => (entityRef.value ? `This ${entityRef.value.kind} — ${entityRef.value.label}` : ''))
+
+watch(entityRef, (e) => {
+  // the chips degrade honestly: the entity left the view → the selection
+  // can't dangle on an entity that isn't there
+  if (!e && chip.value === 'entity') chip.value = 'none'
+})
+
+function onContextEvent(e: Event) {
+  published.value = ((e as CustomEvent).detail ?? null) as AiPageContext | null
+}
+
+function selectChip(next: 'none' | 'page' | 'entity' | 'document') {
+  if (next === 'document') {
+    if (chip.value === 'document') {
+      chip.value = 'none' // tap again drops the pick
+      return
+    }
+    pickerDraft.value = docPick.value
+    pickerOpen.value = true
+    return
+  }
+  pickerOpen.value = false
+  chip.value = chip.value === next ? 'none' : next // tap includes, tap drops
+}
+
+function pickDocument() {
+  const v = pickerDraft.value.trim()
+  if (!v) return
+  docPick.value = v.slice(0, 80)
+  pickerOpen.value = false
+  chip.value = 'document'
+}
+
+/** The declaration for the NEXT message — built at send time so what
+ *  rides is what the page publishes at that moment. */
+function currentAskContext(): AiAskContext | undefined {
+  if (!props.contextChips) return undefined
+  if (chip.value === 'page') return { kind: 'page', label: pageLabel.value, route: window.location.pathname }
+  if (chip.value === 'entity' && entityRef.value) {
+    const e = entityRef.value
+    return {
+      kind: 'entity',
+      label: `this ${e.kind} ${e.label}`,
+      route: window.location.pathname,
+      ...(e.doc ? { doc: e.doc } : {}),
+      ...(e.edition ? { edition: e.edition } : {}),
+    }
+  }
+  if (chip.value === 'document' && docPick.value.trim()) {
+    return { kind: 'document', label: docPick.value.trim(), doc: docPick.value.trim() }
+  }
+  return undefined
+}
+
+/** The honest context line for an answer: the service's echo when it
+ *  came, the explicit not-applied marker when a declaration went to a
+ *  service that predates contexts, else none. Never silent, never a
+ *  guess. (Answers recorded before the chips carry no echo — none is
+ *  TRUE for them: no declaration existed.) */
+function lineFor(m: AiMessage): string {
+  if (m.contextApplied) return contextLine(m.contextApplied)
+  if (m.contextUnapplied) return 'context: not applied — the AI service does not support contexts yet'
+  return contextLine(null)
+}
 
 const draft = ref('')
 const composer = ref<HTMLTextAreaElement | null>(null)
@@ -291,6 +402,7 @@ async function send(text: string) {
   streaming.value = true
   pendingText.value = ''
   pendingCitations.value = []
+  pendingApplied.value = undefined
   statusLine.value = 'The assistant is answering.'
   abort = new AbortController()
   nextTick(() => scrollToEnd())
@@ -298,16 +410,20 @@ async function send(text: string) {
   const history = messages.value
     .slice(-11, -1)
     .map((m) => ({ role: m.role, content: m.content }))
+  // the declared context rides THIS message only — the chip selection is
+  // re-read every send (per-message, changeable mid-session, never locked)
+  const declared = currentAskContext()
 
   try {
     const result = await ask(
       props.apiBase,
       session.value?.token ?? null,
-      { query, history, conversation_id: memoryId.value ?? undefined, lang: props.lang },
+      { query, history, conversation_id: memoryId.value ?? undefined, lang: props.lang, context: declared },
       {
-        onCitations: (c, q) => {
+        onCitations: (c, q, applied) => {
           pendingCitations.value = c
           if (q) quota.value = q
+          if (applied) pendingApplied.value = applied
           nextTick(() => scrollToEnd())
         },
         onToken: (tok) => {
@@ -316,6 +432,7 @@ async function send(text: string) {
         },
         onDone: (info) => {
           followUps.value = info.followUps ?? []
+          const applied = info.contextApplied ?? pendingApplied.value
           const answer: AiMessage = {
             id: crypto.randomUUID(),
             role: 'assistant',
@@ -323,6 +440,8 @@ async function send(text: string) {
             citations: pendingCitations.value,
             model: info.model,
             followUps: info.followUps,
+            contextApplied: applied ?? null,
+            contextUnapplied: !!declared && !applied,
             at: Date.now(),
           }
           messages.value = [...messages.value, answer]
@@ -332,6 +451,7 @@ async function send(text: string) {
               content: answer.content,
               citations: answer.citations,
               model: answer.model,
+              contextApplied: answer.contextApplied,
             })
           } else {
             persistLocal()
@@ -356,6 +476,7 @@ async function send(text: string) {
       // what was asked; the failed answer simply never lands
       pendingText.value = ''
       pendingCitations.value = []
+      pendingApplied.value = undefined
       statusLine.value = ''
     }
   } catch (e: unknown) {
@@ -363,6 +484,7 @@ async function send(text: string) {
       statusLine.value = 'Answer stopped.'
       pendingText.value = ''
       pendingCitations.value = []
+      pendingApplied.value = undefined
     } else {
       errorText.value = 'The assistant is unreachable — check the connection and retry.'
     }
@@ -382,6 +504,9 @@ function togglePanel() {
   open.value = !open.value
   if (open.value) {
     if (window.innerWidth < 640) document.body.style.overflow = 'hidden'
+    // re-read the published context at open: the attribute mirror is the
+    // truth for a panel that hydrated before the page published
+    published.value = readPublishedContext()
     // Esc lives on window, not the panel: mid-conversation focus can sit
     // on transient controls that re-render (send/stop swap), which would
     // strand a panel-scoped keydown.
@@ -408,6 +533,11 @@ function onComposerKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   hydrated.value = true
+  // the page-context seam (TODO.ai-platform/02): the attribute mirror is
+  // the current truth; the event carries live updates (route/entity
+  // changes while the panel is mounted)
+  published.value = readPublishedContext()
+  window.addEventListener(AI_CONTEXT_EVENT, onContextEvent)
   const stored = loadStoredSession(props.apiBase)
   if (stored) await adoptSession(stored)
   else await refreshConversations()
@@ -416,6 +546,7 @@ onBeforeUnmount(() => {
   abort?.abort()
   document.body.style.overflow = ''
   window.removeEventListener('keydown', onGlobalKeydown)
+  window.removeEventListener(AI_CONTEXT_EVENT, onContextEvent)
 })
 </script>
 
@@ -543,6 +674,10 @@ onBeforeUnmount(() => {
             <div v-else class="ai-msg ai-msg--assistant">
               <!-- eslint-disable-next-line vue/no-v-html — the renderer is escape-first (src/ai/markdown.ts) -->
               <div class="ai-md" v-html="renderMd(m.content)"></div>
+              <!-- the honest context line (TODO.ai-platform/02): every
+                   answer says what it was grounded in — the service's
+                   echo, never the panel's wish -->
+              <p v-if="props.contextChips" class="ai-context-line">{{ lineFor(m) }}</p>
               <ul v-if="m.citations?.length" class="ai-cites">
                 <li v-for="(c, i) in m.citations.slice(0, 5)" :key="i" class="ai-cite">
                   <a v-if="c.url" :href="c.url" target="_blank" rel="noopener noreferrer" class="ai-cite-link">
@@ -565,12 +700,42 @@ onBeforeUnmount(() => {
           <div v-if="streaming" class="ai-msg ai-msg--assistant">
             <div v-if="pendingText" class="ai-md" v-html="renderMd(pendingText)"></div>
             <div v-else class="ai-thinking" aria-hidden="true"><span></span><span></span><span></span></div>
+            <p v-if="props.contextChips && pendingApplied" class="ai-context-line">{{ contextLine(pendingApplied) }}</p>
           </div>
           <p v-if="errorText" class="ai-error" role="alert">{{ errorText }}</p>
         </div>
 
         <div class="ai-composer">
           <p v-if="quotaLine" class="ai-quota">{{ quotaLine }}</p>
+          <!-- the context chips (TODO.ai-platform/02): what is AVAILABLE,
+               never pre-selected — tap includes, tap drops, changeable per
+               message. The entity chip exists only when the page carries
+               an entity. None is the default and always offered. -->
+          <div v-if="props.contextChips" class="ai-ctx" role="group" aria-label="Answer context — what the answer grounds in">
+            <div v-if="pickerOpen" class="ai-docpick">
+              <label class="ai-docpick-label" for="ai-docpick-input">Ground the answer in a document</label>
+              <div class="ai-docpick-row">
+                <input
+                  id="ai-docpick-input"
+                  v-model="pickerDraft"
+                  class="ai-docpick-input"
+                  type="text"
+                  placeholder="OIML R 60-1 or urn:oiml:pub:r:60-1:2021"
+                  maxlength="80"
+                  @keydown.enter.prevent="pickDocument"
+                  @keydown.esc.prevent="pickerOpen = false"
+                />
+                <button type="button" class="ai-btn ai-btn--primary ai-docpick-go" :disabled="!pickerDraft.trim()" @click="pickDocument">Pick</button>
+              </div>
+              <p class="ai-docpick-hint">The answer scopes to that publication; a document the corpus doesn't carry degrades honestly to the general corpus (the context line says so).</p>
+            </div>
+            <div class="ai-ctxrow">
+              <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'page' }" :aria-pressed="chip === 'page'" @click="selectChip('page')">{{ pageChipLabel }}</button>
+              <button v-if="entityRef" type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'entity' }" :aria-pressed="chip === 'entity'" @click="selectChip('entity')">{{ entityChipLabel }}</button>
+              <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'document' }" :aria-pressed="chip === 'document'" @click="selectChip('document')">{{ chip === 'document' && docPick ? `A document — ${docPick}` : 'A document…' }}</button>
+              <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'none' }" :aria-pressed="chip === 'none'" @click="selectChip('none')">None</button>
+            </div>
+          </div>
           <div class="ai-inputrow">
             <textarea
               ref="composer"
@@ -816,6 +981,34 @@ html.dark .ai-bubble-root {
   text-align: left;
 }
 .ai-chip:hover { border-color: var(--ai-accent); color: var(--ai-accent); }
+
+/* ── the context chips (TODO.ai-platform/02) ── */
+.ai-ctx { margin-bottom: 0.5rem; }
+.ai-ctxrow { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.ai-ctxchip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-chip--on { border-color: var(--ai-accent); color: var(--ai-accent); background: var(--ai-accent-soft); font-weight: 600; }
+.ai-context-line { margin: 0.375rem 0 0; font-size: 0.6875rem; color: var(--ai-ink-muted); }
+.ai-docpick {
+  border: 1px solid var(--ai-rule);
+  border-radius: 10px;
+  padding: 0.625rem;
+  margin-bottom: 0.5rem;
+  background: var(--ai-bg-raised);
+}
+.ai-docpick-label { display: block; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem; }
+.ai-docpick-row { display: flex; gap: 0.5rem; }
+.ai-docpick-input {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--ai-rule);
+  border-radius: 8px;
+  background: var(--ai-bg);
+  color: var(--ai-ink);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.ai-docpick-hint { margin: 0.375rem 0 0; font-size: 0.6875rem; color: var(--ai-ink-muted); }
 
 .ai-thinking { display: flex; gap: 0.25rem; padding: 0.375rem 0; }
 .ai-thinking span { width: 6px; height: 6px; border-radius: 50%; background: var(--ai-ink-muted); animation: ai-pulse 1.2s infinite ease-in-out; }
