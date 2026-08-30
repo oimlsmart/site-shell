@@ -39,7 +39,7 @@ const aiConfig = ai && typeof ai === 'object' ? ai : {}
       <span class="font-serif text-base font-semibold tracking-tight truncate">{brand.brandName}</span>
     </a>
     <div class="flex items-center gap-2 sm:gap-4 min-w-0">
-      <nav class="nav-menu hidden lg:flex items-center gap-3.5" id="nav-menu" aria-label="Primary">
+      <nav class="nav-menu hidden lg:flex items-center gap-3" id="nav-menu" aria-label="Primary">
         {NAV_ITEMS.map(item => (
           item.type === 'dropdown' ? (
             <NavDropdown client:load config={item.config} currentPath={path} />
