@@ -62,8 +62,12 @@ footer together — never re-specify defaults per component:
 ### Slots
 
 `Base` exposes `head` (extra `<head>` tags) and `signin` (replace the
-header's default sign-in link). `MinisiteNav` exposes a right-aligned
-slot for nav-local utilities.
+header's default sign-in link — e.g. an account-chip island with the
+logged-in user's profile photo). The signin slot renders **beside** the
+nav, never inside it, so the chip stays visible at every breakpoint;
+keep chips compact and mark them `shrink-0`. When real slot content is
+mounted, the mobile overlay drops its own "Sign in" link.
+`MinisiteNav` exposes a right-aligned slot for nav-local utilities.
 
 ### Tiered pages (SMART / SMART+)
 

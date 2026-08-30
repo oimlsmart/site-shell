@@ -14,6 +14,15 @@ const logos = COMPONENTS.filter(c => c.logo).slice(0, 4)
 ---
 
 <Base internal title="Showcase" description="The shell's less-travelled components, gated.">
+  <a
+    slot="signin"
+    id="account-chip"
+    href="/account"
+    class="flex items-center gap-2 no-underline text-ink shrink-0"
+  >
+    <img id="account-avatar" src="https://www.oimlsmart.org/smart-logo-light.svg" alt="" class="h-8 w-8 rounded-full shrink-0" />
+    <span class="text-sm font-semibold hidden sm:inline">r.tse</span>
+  </a>
   <main class="max-w-3xl mx-auto px-6 py-16 space-y-10">
     <section>
       <h1 class="font-serif text-3xl text-ink mb-4">The component showcase</h1>

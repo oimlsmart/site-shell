@@ -12,18 +12,48 @@ import ThemeToggle from './ThemeToggle.vue'
 import { NAV_ITEMS, isLinkActive } from '../data/nav-config'
 import { resolveBrand, frontDoor, type BrandProps } from '../data/site-meta'
 
-interface Props extends BrandProps {}
+interface Props extends BrandProps {
+  /** Whether the consumer mounted real signin-slot content (an account
+   *  chip) — Base threads this so the mobile overlay can drop its
+   *  logged-out "Sign in" link. */
+  hasSignin?: boolean
+}
 const brand = resolveBrand(Astro.props)
+const { hasSignin = true } = Astro.props
 const path = Astro.url.pathname
 ---
 
 <header class="site-nav sticky top-0 z-[100] bg-paper-soft dark:bg-paper-deep border-b border-rule">
-  <div class="max-w-7xl mx-auto px-6 flex items-center justify-between h-14">
+  <div class="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4 h-14">
     <a href={brand.homeHref} class="nav-brand flex items-center gap-2 no-underline text-ink min-w-0">
       <img src={brand.logoLight} alt="" class="logo-light h-7 w-auto shrink-0" />
       <img src={brand.logoDark} alt="" class="logo-dark h-7 w-auto shrink-0" />
       <span class="font-serif text-base font-semibold tracking-tight truncate">{brand.brandName}</span>
     </a>
+    <div class="flex items-center gap-2 sm:gap-4 min-w-0">
+      <nav class="nav-menu hidden lg:flex items-center gap-4" id="nav-menu" aria-label="Primary">
+        {NAV_ITEMS.map(item => (
+          item.type === 'dropdown' ? (
+            <NavDropdown client:load config={item.config} currentPath={path} />
+          ) : (
+            <a
+              href={frontDoor(item.href)}
+              class={`text-sm font-medium text-ink-soft hover:text-accent transition-colors whitespace-nowrap ${isLinkActive(item.matchPrefix, path) ? 'text-accent font-semibold' : ''}`}
+            >{item.label}</a>
+          )
+        ))}
+        <SearchBox client:idle />
+        <ThemeToggle client:load />
+      </nav>
+      <!-- Identity, not navigation: the account chip (or the default
+           sign-in link) stays visible at EVERY breakpoint — it never
+           collapses with the nav. Keep chips compact and shrink-0. -->
+      <div class="flex items-center shrink-0">
+        <slot name="signin">
+          <a href={brand.signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap shrink-0">Sign in ↗</a>
+        </slot>
+      </div>
+    </div>
     <MobileNav
       client:load
       brandName={brand.brandName}
@@ -31,23 +61,7 @@ const path = Astro.url.pathname
       logoDark={brand.logoDark}
       homeHref={brand.homeHref}
       signInHref={brand.signInHref}
+      show-sign-in={!hasSignin}
     />
-    <nav class="nav-menu hidden lg:flex items-center gap-4" id="nav-menu" aria-label="Primary">
-      {NAV_ITEMS.map(item => (
-        item.type === 'dropdown' ? (
-          <NavDropdown client:load config={item.config} currentPath={path} />
-        ) : (
-          <a
-            href={frontDoor(item.href)}
-            class={`text-sm font-medium text-ink-soft hover:text-accent transition-colors whitespace-nowrap ${isLinkActive(item.matchPrefix, path) ? 'text-accent font-semibold' : ''}`}
-          >{item.label}</a>
-        )
-      ))}
-      <SearchBox client:idle />
-      <ThemeToggle client:load />
-      <slot name="signin">
-        <a href={brand.signInHref} class="shell-signin text-sm font-semibold text-accent whitespace-nowrap">Sign in ↗</a>
-      </slot>
-    </nav>
   </div>
 </header>
