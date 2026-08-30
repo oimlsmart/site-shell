@@ -21,9 +21,16 @@ interface Props {
    *  signin slot — a logged-in user must not be offered "Sign in". */
   showSignIn?: boolean
 }
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  // withDefaults, never `props.showSignIn ?? true`: a type-only boolean
+  // prop compiles to Vue's Boolean casting, so the ABSENT prop reads
+  // false (not undefined) and the `??` fallback never fires — the
+  // overlay lost its "Sign in" on every bare mount (the www suite
+  // caught it, TODO.ai-platform/01's mount drill).
+  showSignIn: true,
+})
 const { brandName, logoLight, logoDark, homeHref, signInHref } = resolveBrand(props)
-const showSignIn = props.showSignIn ?? true
+const showSignIn = props.showSignIn
 
 const isOpen = ref(false)
 const expandedSection = ref<string | null>(null)
