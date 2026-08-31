@@ -23,8 +23,9 @@ interface Props extends BrandProps {
    *  service; the object form overrides the service origin (staging)
    *  and the answer-language hint. `contextChips` (TODO.ai-platform/02)
    *  opts the property into the opt-in context chips + the honest
-   *  context line. */
-  aiAssistant?: boolean | { apiBase?: string; lang?: string; contextChips?: boolean }
+   *  context line; `accountChip` (TODO.ai-platform/03) adds the
+   *  member-only "my account" chip (the live-data delegation). */
+  aiAssistant?: boolean | { apiBase?: string; lang?: string; contextChips?: boolean; accountChip?: boolean }
 }
 const brand = resolveBrand(Astro.props)
 const { hasSignin = true } = Astro.props
@@ -54,7 +55,7 @@ const aiConfig = ai && typeof ai === 'object' ? ai : {}
         ))}
         <SearchBox client:idle />
         <ThemeToggle client:load />
-        {ai && <AiBubble client:load mode="chrome" apiBase={aiConfig.apiBase} lang={aiConfig.lang} contextChips={aiConfig.contextChips} />}
+        {ai && <AiBubble client:load mode="chrome" apiBase={aiConfig.apiBase} lang={aiConfig.lang} contextChips={aiConfig.contextChips} accountChip={aiConfig.accountChip} />}
       </nav>
       <!-- Identity, not navigation: the account chip (or the default
            sign-in link) stays visible at EVERY breakpoint — it never

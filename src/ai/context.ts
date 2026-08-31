@@ -100,21 +100,33 @@ export function readPublishedContext(): AiPageContext | null {
 
 /** The declaration the panel sends on POST /api/ask. */
 export interface AiAskContext {
-  kind: 'page' | 'entity' | 'document'
+  kind: 'page' | 'entity' | 'document' | 'account'
   label: string
   route?: string
   doc?: string
   edition?: string
 }
 
+/** The account context's live-read echo (TODO.ai-platform/03): when the
+ *  live data was read, which stores answered, how many records grounded
+ *  the answer. Present only on a successful read. */
+export interface AiLiveEcho {
+  read_at: string
+  stores: string[]
+  records: number
+}
+
 /** What the service actually applied (the `context_applied` echo). */
 export interface AiContextApplied {
-  kind: 'page' | 'entity' | 'document' | 'none'
+  kind: 'page' | 'entity' | 'document' | 'account' | 'none'
   label?: string
   /** the publication the declaration actually scoped retrieval to */
   scoped_to?: string | null
-  /** why a doc-carrying declaration did not scope the answer */
-  note?: 'document-not-in-corpus' | 'question-document-wins'
+  /** why a doc-carrying declaration did not scope the answer — or, for
+   *  the account kind, why the live data was NOT read */
+  note?: 'document-not-in-corpus' | 'question-document-wins' | 'sign-in-required' | 'live-window-expired' | 'live-unavailable'
+  /** the account kind's live read (when it happened) */
+  live?: AiLiveEcho
 }
 
 /** The honest context line — rendered on EVERY answer, computed from the
@@ -126,7 +138,18 @@ export function contextLine(a: AiContextApplied | null | undefined): string {
   let base: string
   if (a.kind === 'page') base = `context: this page${label ? ` — ${label}` : ''}`
   else if (a.kind === 'entity') base = `context: ${label || 'this entity'}`
-  else base = `context: ${label || 'a document'}`
+  else if (a.kind === 'account') {
+    // TODO.ai-platform/03 — the live-data line says WHEN the account was
+    // read (never silently), or why it was not.
+    if (a.live) {
+      const at = new Date(a.live.read_at)
+      const when = Number.isNaN(at.getTime()) ? '' : `, read ${at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+      base = `context: my account (live${when}) — ${a.live.records} record${a.live.records === 1 ? '' : 's'}`
+    } else if (a.note === 'sign-in-required') base = 'context: my account (not read — sign in first)'
+    else if (a.note === 'live-window-expired') base = 'context: my account (not read — the live window lapsed; sign in again to refresh)'
+    else if (a.note === 'live-unavailable') base = 'context: my account (not read — the live read was unavailable)'
+    else base = 'context: my account (not read)'
+  } else base = `context: ${label || 'a document'}`
   if (a.note === 'document-not-in-corpus') base += ' (not in the corpus — the general corpus answered)'
   else if (a.note === 'question-document-wins') base += ' (the question named a publication — it scoped the answer)'
   return base

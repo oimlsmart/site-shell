@@ -33,8 +33,10 @@ interface Props {
   /** The AI assistant bubble (TODO.ai-platform/01) — off by default; the
    *  consuming property opts in (`true`) or overrides the service origin
    *  (`{ apiBase }`) for staging. `contextChips` (TODO.ai-platform/02)
-   *  opts into the opt-in context chips + the honest context line. */
-  aiAssistant?: boolean | { apiBase?: string; lang?: string; contextChips?: boolean }
+   *  opts into the opt-in context chips + the honest context line;
+   *  `accountChip` (TODO.ai-platform/03) adds the member-only "my
+   *  account" chip (the live-data delegation). */
+  aiAssistant?: boolean | { apiBase?: string; lang?: string; contextChips?: boolean; accountChip?: boolean }
 }
 const { title, description, siteTitle = SITE.title, internal = false, lang = SITE.lang, aiAssistant = false } = Astro.props
 const brand = resolveBrand(Astro.props)

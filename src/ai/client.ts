@@ -39,6 +39,10 @@ export interface AiMessage {
   role: 'user' | 'assistant'
   content: string
   citations?: AiCitation[] | null
+  /** the live records the answer grounded in (TODO.ai-platform/03 —
+   *  the "my account" context; ephemeral: a point-in-time read, never
+   *  persisted with the conversation) */
+  records?: AiLiveRecord[] | null
   model?: string
   followUps?: string[]
   /** the context the service APPLIED to this answer (the honest context
@@ -69,7 +73,7 @@ export interface AiQuota {
 }
 
 export interface AskEvents {
-  onCitations?: (citations: AiCitation[], quota?: AiQuota, contextApplied?: AiContextApplied) => void
+  onCitations?: (citations: AiCitation[], quota?: AiQuota, contextApplied?: AiContextApplied, records?: AiLiveRecord[]) => void
   onToken?: (token: string) => void
   onDone?: (info: { queryHash: string | null; followUps: string[]; model?: string; contextApplied?: AiContextApplied }) => void
 }
@@ -89,16 +93,67 @@ function authHeaders(token: string | null): Record<string, string> {
 function asApplied(v: unknown): AiContextApplied | undefined {
   if (!v || typeof v !== 'object') return undefined
   const k = (v as { kind?: unknown }).kind
-  if (k !== 'page' && k !== 'entity' && k !== 'document' && k !== 'none') return undefined
+  if (k !== 'page' && k !== 'entity' && k !== 'document' && k !== 'account' && k !== 'none') return undefined
   const label = typeof (v as { label?: unknown }).label === 'string' ? ((v as { label: string }).label).slice(0, 120) : undefined
   const scoped = (v as { scoped_to?: unknown }).scoped_to
   const note = (v as { note?: unknown }).note
+  // The account kind's live echo (TODO.ai-platform/03) — the context
+  // line's "when was live data read" source; bounded, garbage dropped.
+  const lv = (v as { live?: unknown }).live
+  const live =
+    lv && typeof lv === 'object' && typeof (lv as { read_at?: unknown }).read_at === 'string' &&
+    Array.isArray((lv as { stores?: unknown }).stores) && typeof (lv as { records?: unknown }).records === 'number'
+      ? {
+          read_at: String((lv as { read_at: string }).read_at).slice(0, 40),
+          stores: ((lv as { stores: unknown[] }).stores).filter((s): s is string => typeof s === 'string').slice(0, 8),
+          records: Math.min(Math.max(0, Number((lv as { records: number }).records) || 0), 999),
+        }
+      : undefined
   return {
     kind: k,
     ...(label ? { label } : {}),
     scoped_to: typeof scoped === 'string' ? scoped.slice(0, 80) : null,
-    ...(note === 'document-not-in-corpus' || note === 'question-document-wins' ? { note } : {}),
+    ...(note === 'document-not-in-corpus' || note === 'question-document-wins' ||
+      note === 'sign-in-required' || note === 'live-window-expired' || note === 'live-unavailable' ? { note } : {}),
+    ...(live ? { live } : {}),
   }
+}
+
+/** A live record the account answer grounds in (TODO.ai-platform/03 —
+ *  the platform's row, mapped 1:1 by the service; the panel renders the
+ *  link card, the answer's claims name it). */
+export interface AiLiveRecord {
+  store: string
+  id: string
+  label: string
+  url: string
+  status?: string
+  date?: string
+  detail?: string
+}
+
+/** Validate the response's records array (never trusted blindly: the
+ *  link cards render from THIS — a record without an honest http(s) link
+ *  is dropped, the panel never fabricates one). */
+function asRecords(v: unknown): AiLiveRecord[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  const out: AiLiveRecord[] = []
+  for (const r of v.slice(0, 24)) {
+    if (!r || typeof r !== 'object') continue
+    const rec = r as Record<string, unknown>
+    if (typeof rec.store !== 'string' || typeof rec.id !== 'string') continue
+    if (typeof rec.label !== 'string' || typeof rec.url !== 'string' || !/^https?:\/\//.test(rec.url)) continue
+    out.push({
+      store: rec.store.slice(0, 40),
+      id: rec.id.slice(0, 200),
+      label: rec.label.slice(0, 160),
+      url: rec.url.slice(0, 500),
+      ...(typeof rec.status === 'string' ? { status: rec.status.slice(0, 40) } : {}),
+      ...(typeof rec.date === 'string' ? { date: rec.date.slice(0, 40) } : {}),
+      ...(typeof rec.detail === 'string' ? { detail: rec.detail.slice(0, 240) } : {}),
+    })
+  }
+  return out.length ? out : undefined
 }
 
 /** POST /api/ask with stream:true; the service may answer with SSE or a
@@ -134,7 +189,7 @@ export async function ask(
   if (ct.includes('application/json')) {
     const data = await res.json().catch(() => null)
     const applied = asApplied(data?.context_applied)
-    if (Array.isArray(data?.citations)) ev.onCitations?.(data.citations, data.quota, applied)
+    if (Array.isArray(data?.citations)) ev.onCitations?.(data.citations, data.quota, applied, asRecords(data?.records))
     if (typeof data?.answer === 'string') ev.onToken?.(data.answer)
     ev.onDone?.({
       queryHash: typeof data?.query_hash === 'string' ? data.query_hash : null,
@@ -167,7 +222,7 @@ export async function ask(
       }
       if (evt.type === 'citations') {
         streamApplied = asApplied(evt.context_applied) ?? streamApplied
-        ev.onCitations?.(Array.isArray(evt.citations) ? (evt.citations as AiCitation[]) : [], evt.quota as AiQuota | undefined, streamApplied)
+        ev.onCitations?.(Array.isArray(evt.citations) ? (evt.citations as AiCitation[]) : [], evt.quota as AiQuota | undefined, streamApplied, asRecords(evt.records))
       } else if (evt.type === 'token') {
         if (typeof evt.v === 'string') ev.onToken?.(evt.v)
       } else if (evt.type === 'done') {

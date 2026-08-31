@@ -48,6 +48,7 @@ import {
   saveLocalConversations,
   storeSession,
   type AiCitation,
+  type AiLiveRecord,
   type AiMessage,
   type AiQuota,
   type AiSession,
@@ -79,12 +80,19 @@ interface Props {
    *  line. Off by default until the wave's eval legs are green — a
    *  property opts in via its mount flag. */
   contextChips?: boolean
+  /** TODO.ai-platform/03: the "my account" chip — the member's OWN live
+   *  platform data, read by the AI service AS the user through the RFC
+   *  8693 session delegation (the cones bind exactly; the context line
+   *  says when the live data was read). Members only, flag-gated, off by
+   *  default. */
+  accountChip?: boolean
 }
 const props = withDefaults(defineProps<Props>(), {
   apiBase: SERVICES.ai,
   mode: 'standalone',
   fabBottom: '1rem',
   contextChips: false,
+  accountChip: false,
 })
 
 const open = ref(false)
@@ -148,12 +156,14 @@ const memoryId = ref<string | null>(null)
 // page publishing nothing offers This page (named from the document
 // title) + A document… + None. No entity in view → no entity chip.
 const published = ref<AiPageContext | null>(null)
-const chip = ref<'none' | 'page' | 'entity' | 'document'>('none')
+const chip = ref<'none' | 'page' | 'entity' | 'document' | 'account'>('none')
 const docPick = ref('')
 const pickerOpen = ref(false)
 const pickerDraft = ref('')
 /** the context_applied echo for the answer currently streaming */
 const pendingApplied = ref<AiContextApplied | undefined>(undefined)
+/** the live records for the answer currently streaming (TODO.ai-platform/03) */
+const pendingRecords = ref<AiLiveRecord[] | undefined>(undefined)
 
 const entityRef = computed(() => published.value?.entity ?? null)
 const pageLabel = computed(
@@ -175,7 +185,7 @@ function onContextEvent(e: Event) {
   published.value = ((e as CustomEvent).detail ?? null) as AiPageContext | null
 }
 
-function selectChip(next: 'none' | 'page' | 'entity' | 'document') {
+function selectChip(next: 'none' | 'page' | 'entity' | 'document' | 'account') {
   if (next === 'document') {
     if (chip.value === 'document') {
       chip.value = 'none' // tap again drops the pick
@@ -201,6 +211,10 @@ function pickDocument() {
  *  rides is what the page publishes at that moment. */
 function currentAskContext(): AiAskContext | undefined {
   if (!props.contextChips) return undefined
+  // the account chip (TODO.ai-platform/03): the member's own live data —
+  // the honest label rides the declaration; the service reads exactly
+  // what the user can see, and the echo says when it did
+  if (chip.value === 'account') return { kind: 'account', label: 'my account' }
   if (chip.value === 'page') return { kind: 'page', label: pageLabel.value, route: window.location.pathname }
   if (chip.value === 'entity' && entityRef.value) {
     const e = entityRef.value
@@ -237,6 +251,12 @@ const launcherFab = ref<HTMLButtonElement | null>(null)
 let abort: AbortController | null = null
 
 const isMember = computed(() => !!session.value)
+
+watch(isMember, (m) => {
+  // the account chip is member-only: a sign-out mid-selection drops it
+  // honestly (never a dangling declaration the service would refuse)
+  if (!m && chip.value === 'account') chip.value = 'none'
+})
 const activeTitle = computed(() => conversations.value.find((c) => c.id === activeId.value)?.title ?? '')
 const quotaLine = computed(() => {
   if (!quota.value || isMember.value) return ''
@@ -434,6 +454,7 @@ async function send(text: string) {
   pendingText.value = ''
   pendingCitations.value = []
   pendingApplied.value = undefined
+  pendingRecords.value = undefined
   statusLine.value = 'The assistant is answering.'
   abort = new AbortController()
   nextTick(() => scrollToEnd())
@@ -451,10 +472,11 @@ async function send(text: string) {
       session.value?.token ?? null,
       { query, history, conversation_id: memoryId.value ?? undefined, lang: props.lang, context: declared },
       {
-        onCitations: (c, q, applied) => {
+        onCitations: (c, q, applied, records) => {
           pendingCitations.value = c
           if (q) quota.value = q
           if (applied) pendingApplied.value = applied
+          if (records) pendingRecords.value = records
           nextTick(() => scrollToEnd())
         },
         onToken: (tok) => {
@@ -469,6 +491,11 @@ async function send(text: string) {
             role: 'assistant',
             content: pendingText.value,
             citations: pendingCitations.value,
+            // the live records the account answer grounded in (TODO.
+            // ai-platform/03) — the link cards; ephemeral by design (a
+            // point-in-time read: the resumed session keeps the honest
+            // context line from the persisted echo, not the cards)
+            records: pendingRecords.value ?? null,
             model: info.model,
             followUps: info.followUps,
             contextApplied: applied ?? null,
@@ -489,6 +516,7 @@ async function send(text: string) {
           }
           pendingText.value = ''
           pendingCitations.value = []
+          pendingRecords.value = undefined
           statusLine.value = 'Answer complete.'
           void refreshConversations()
         },
@@ -508,6 +536,7 @@ async function send(text: string) {
       pendingText.value = ''
       pendingCitations.value = []
       pendingApplied.value = undefined
+      pendingRecords.value = undefined
       statusLine.value = ''
     }
   } catch (e: unknown) {
@@ -715,6 +744,18 @@ onBeforeUnmount(() => {
                    answer says what it was grounded in — the service's
                    echo, never the panel's wish -->
               <p v-if="props.contextChips" class="ai-context-line">{{ lineFor(m) }}</p>
+              <!-- the live-record cards (TODO.ai-platform/03): the claims
+                   link to the records they came from — the platform's own
+                   pages, opening where the member's browser would -->
+              <ul v-if="m.records?.length" class="ai-recs">
+                <li v-for="r in m.records" :key="`${r.store}:${r.id}`" class="ai-rec">
+                  <a :href="r.url" target="_blank" rel="noopener noreferrer" class="ai-rec-link">
+                    <span class="ai-rec-label">{{ r.label }}</span>
+                    <span v-if="r.status" class="ai-rec-status">{{ r.status }}</span>
+                    <span v-if="r.detail" class="ai-rec-detail">{{ r.detail }}</span>
+                  </a>
+                </li>
+              </ul>
               <ul v-if="m.citations?.length" class="ai-cites">
                 <li v-for="(c, i) in m.citations.slice(0, 5)" :key="i" class="ai-cite">
                   <a v-if="citationUrl(c)" :href="citationUrl(c)" target="_blank" rel="noopener noreferrer" class="ai-cite-link">
@@ -738,6 +779,14 @@ onBeforeUnmount(() => {
             <div v-if="pendingText" class="ai-md" v-html="renderMd(pendingText)"></div>
             <div v-else class="ai-thinking" aria-hidden="true"><span></span><span></span><span></span></div>
             <p v-if="props.contextChips && pendingApplied" class="ai-context-line">{{ contextLine(pendingApplied) }}</p>
+            <ul v-if="pendingRecords?.length" class="ai-recs">
+              <li v-for="r in pendingRecords" :key="`${r.store}:${r.id}`" class="ai-rec">
+                <a :href="r.url" target="_blank" rel="noopener noreferrer" class="ai-rec-link">
+                  <span class="ai-rec-label">{{ r.label }}</span>
+                  <span v-if="r.status" class="ai-rec-status">{{ r.status }}</span>
+                </a>
+              </li>
+            </ul>
           </div>
           <p v-if="errorText" class="ai-error" role="alert">{{ errorText }}</p>
         </div>
@@ -770,6 +819,10 @@ onBeforeUnmount(() => {
               <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'page' }" :aria-pressed="chip === 'page'" @click="selectChip('page')">{{ pageChipLabel }}</button>
               <button v-if="entityRef" type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'entity' }" :aria-pressed="chip === 'entity'" @click="selectChip('entity')">{{ entityChipLabel }}</button>
               <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'document' }" :aria-pressed="chip === 'document'" @click="selectChip('document')">{{ chip === 'document' && docPick ? `A document — ${docPick}` : 'A document…' }}</button>
+              <!-- the "my account" chip (TODO.ai-platform/03): the member's
+                   OWN live data, honestly labeled — never offered to the
+                   anonymous visitor, never wider than the member's own cone -->
+              <button v-if="props.accountChip && isMember" type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'account' }" :aria-pressed="chip === 'account'" @click="selectChip('account')">My account — reads what you can see</button>
               <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'none' }" :aria-pressed="chip === 'none'" @click="selectChip('none')">None</button>
             </div>
           </div>
@@ -1025,6 +1078,15 @@ html.dark .ai-bubble-root {
 .ai-ctxchip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-chip--on { border-color: var(--ai-accent); color: var(--ai-accent); background: var(--ai-accent-soft); font-weight: 600; }
 .ai-context-line { margin: 0.375rem 0 0; font-size: 0.6875rem; color: var(--ai-ink-muted); }
+
+/* ── the live-record cards (TODO.ai-platform/03) ── */
+.ai-recs { list-style: none; margin: 0.5rem 0 0; padding: 0.5rem 0 0; border-top: 1px dashed var(--ai-rule); display: flex; flex-direction: column; gap: 0.375rem; }
+.ai-rec { font-size: 0.75rem; }
+.ai-rec-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.5rem; text-decoration: none; color: inherit; }
+.ai-rec-link:hover .ai-rec-label { text-decoration: underline; }
+.ai-rec-label { font-weight: 600; color: var(--ai-accent); }
+.ai-rec-status { display: inline-block; padding: 0 0.375rem; border: 1px solid var(--ai-rule); border-radius: 999px; color: var(--ai-ink-muted); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.ai-rec-detail { flex-basis: 100%; color: var(--ai-ink-muted); font-size: 0.6875rem; }
 .ai-docpick {
   border: 1px solid var(--ai-rule);
   border-radius: 10px;
