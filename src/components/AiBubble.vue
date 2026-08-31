@@ -62,7 +62,11 @@ import {
   type AiPageContext,
 } from '../ai/context'
 import { renderMarkdownLite } from '../ai/markdown'
-import { SERVICES } from '../data/site.mjs'
+// The typed re-export, never the .mjs source: the strict-TS consumers
+// (the platform's vue-tsc) cannot resolve an untyped .mjs import — the
+// 0.1.11 hardening's direct site.mjs import broke them (the wave-03
+// consumer pass caught it; site-meta.ts re-exports the same SERVICES).
+import { SERVICES } from '../data/site-meta'
 
 interface Props {
   /** The AI service origin. */
