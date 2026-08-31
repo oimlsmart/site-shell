@@ -15,7 +15,7 @@ import { THEME_STORAGE_KEY, THEME_CLASS } from '@oimlsmart/site-shell/data/theme
 
 const PORT = 4173
 const BASE = `http://127.0.0.1:${PORT}`
-const PAGES = ['/', '/showcase', '/docs', '/bubble']
+const PAGES = ['/', '/showcase', '/docs', '/bubble', '/bubble-standalone']
 
 function waitForPort(port, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
@@ -418,6 +418,32 @@ try {
       })
       if (!wrapped.isLast) failures.push(`bubble mobile: Shift+Tab did not wrap inside the sheet (outsidePanel=${wrapped.outsidePanel})`)
     }
+    await ctx.close()
+  }
+
+  // The standalone mount: a property with its own chrome gets the
+  // floating launcher at EVERY breakpoint (chrome mode hides the FAB
+  // ≥1024) — asserted at desktop width, plus open and Esc-close.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    await ctx.route('https://ai-stub.invalid/**', (route) => route.fulfill({ status: 500, body: 'stub' }))
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/bubble-standalone`, { waitUntil: 'load' })
+    await pg.waitForTimeout(400)
+    const fab = pg.locator('.ai-launcher--fab')
+    if (!(await fab.isVisible().catch(() => false))) failures.push('standalone: the floating launcher must stay visible at desktop width')
+    else {
+      await fab.click()
+      const panel = pg.locator('#ai-bubble-panel')
+      if (!(await panel.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false))) failures.push('standalone: the panel did not open')
+      else {
+        await pg.keyboard.press('Escape')
+        await pg.waitForTimeout(400)
+        if (await panel.isVisible().catch(() => false)) failures.push('standalone: Escape did not close the panel')
+      }
+    }
+    if (await pg.locator('.ai-launcher--icon').isVisible().catch(() => false)) failures.push('standalone: the header icon must never render without the chrome mount')
     await ctx.close()
   }
 

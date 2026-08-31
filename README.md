@@ -71,6 +71,12 @@ import { AiBubble } from '@oimlsmart/site-shell'
 <AiBubble client:load mode="standalone" />
 ```
 
+The floating launcher shows at every breakpoint in standalone mode. A
+host with its own bottom-right affordance lifts the launcher clear of
+it: `fabBottom="5rem"` (any CSS length; default `1rem`). The service
+origin defaults to the estate's AI service (`SERVICES.ai` in the site
+constants leaf) — override `apiBase` for staging.
+
 The contract (the honest postures the component keeps):
 
 - **Auth**: anonymous visitors get the public corpus tier, marked
