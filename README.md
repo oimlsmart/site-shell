@@ -160,6 +160,36 @@ ask body, the honest context line across a mid-session change, the
 not-in-corpus degradation, the entity chip leaving when the page stops
 carrying the entity).
 
+#### The draft acts (TODO.ai-platform/04)
+
+Opt-in per property (`aiAssistant={{ draftActs: true }}` — or the
+`draftActs` prop on a direct `AiBubble` mount). The service can PREPARE
+an act (the application prefill is the pilot); the panel renders the
+draft card — honestly marked AI-prepared, the fields it carries, the
+values it dropped and why — and the user's click hands the draft to the
+HOST's real form. **The panel never holds a write credential: the draft
+rides the DOM seam, never an API; the commit is the user's own click in
+the form.** The draft is ephemeral on the message (a resumed session
+keeps the words, never a stale draft).
+
+**The draft seam** — how the panel hands a prepared act to the host —
+is `src/ai/drafts.ts` (`@oimlsmart/site-shell/ai/drafts`, an explicit
+`exports` entry like `ai/context`):
+
+- The panel dispatches `oimlsmart:ai-draft` (a window `CustomEvent`)
+  with the service-validated draft payload (the wire shape is the AI
+  service's contract — the rag repo's `docs/API.md` §2.1.3).
+- A host that serves the act (the SMART platform's wizard) listens,
+  **re-validates the payload itself** (the panel's validator is a
+  convenience, never a boundary), stores it for the form, answers with
+  `oimlsmart:ai-draft-ack` (`{ accepted: true }`), and opens the form.
+  A refusal answers `{ accepted: false, reason }`; a host without the
+  seam answers nothing and the panel reports the no-host honestly.
+- The card's honesty is the wave's: "nothing is submitted until you
+  review and confirm it there yourself" — the form's own write path (its
+  validation, its gates, its audit, which marks the act AI-prepared) is
+  the only commit.
+
 ### Brand overrides
 
 Brand identity resolves in exactly one place. Pass any of
