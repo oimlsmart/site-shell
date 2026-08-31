@@ -191,11 +191,26 @@ try {
           : c.doc && String(c.doc).includes('999')
             ? { kind: c.kind, label: c.label, scoped_to: null, note: 'document-not-in-corpus' }
             : { kind: c.kind, label: c.label, scoped_to: c.doc ? 'OIML R 60:2021' : null }
-      return [
+    // The draft act (TODO.ai-platform/04): a "draft" query answers with
+    // the draft on the citations frame — the wire shape the service
+    // speaks (rag docs/API.md §2.1.3). requires_confirmation ALWAYS.
+    const draftPayload = {
+      kind: 'draft', act: 'application_prefill', version: 1,
+      title: 'New OIML R 60:2021 application', prepared_at: '2026-08-31T10:00:00Z',
+      requires_confirmation: true,
+      fields: {
+        standard_doc: 'urn:oiml:pub:r:60:2021', standard_label: 'OIML R 60:2021',
+        family_designation: 'LC series', model_designation: 'LC-500',
+        samples: [{ serial: 'SN-0042', condition: 'NEW' }], scheme: 'A',
+      },
+      dropped: [{ field: 'description', value: 'rated for 500 kg', reason: 'not stated in your own words' }],
+      notes: ['The technical parameters stay with you: the form derives what the model declares.'],
+    }
+    return [
         `data: ${JSON.stringify({ type: 'citations', citations: [
           { docidentifier: 'OIML R 60:2017', edition: '2017', clause_title: 'Metrological requirements', status: 'in-force', url: 'https://www.oiml.org/en/publications/r60' },
           { docidentifier: 'OIML V 002', clause_title: 'Stub link policy', url: 'javascript:alert(1)' },
-        ], quota: { used: 1, limit: 20 }, context_applied: applied, ...(c?.kind === 'account' && applied.live ? { records: accountRecords } : {}) })}`,
+        ], quota: { used: 1, limit: 20 }, context_applied: applied, ...(c?.kind === 'account' && applied.live ? { records: accountRecords } : {}), ...(body.query.toLowerCase().includes('draft') ? { draft: draftPayload } : {}) })}`,
         `data: {"type":"token","v":"R 60 covers **load cells**."}`,
         `data: {"type":"token","v":"<img src=x onerror=window.__xssFired=1>"}`,
         `data: ${JSON.stringify({ type: 'token', v: ' Accuracy `class C3` spans 0 to 5.' })}`,
@@ -206,6 +221,19 @@ try {
 
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
     await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    // The stub HOST's draft seam (TODO.ai-platform/04): the real
+    // platform's ai-drafts listener answers the panel's oimlsmart:ai-draft
+    // dispatch; here a stub host records the payload and acks per the
+    // mode the legs set (accept / refuse).
+    await ctx.addInitScript(`
+      window.__aiDrafts = [];
+      window.__aiDraftMode = 'accept';
+      window.addEventListener('oimlsmart:ai-draft', (e) => {
+        window.__aiDrafts.push(e.detail);
+        const accepted = window.__aiDraftMode === 'accept';
+        window.dispatchEvent(new CustomEvent('oimlsmart:ai-draft-ack', { detail: accepted ? { accepted: true } : { accepted: false, reason: 'the stub host refused' } }));
+      });
+    `)
     // The stub service: ask streams; conversations is member-gated (401);
     // the bridge login popup hands a session token via postMessage, then
     // /auth/me + the conversations list answer as the member.
@@ -367,6 +395,40 @@ try {
     await pg.getByRole('button', { name: 'Send' }).click()
     await panel.getByText(/not read — the live window lapsed/).waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
     expect(await panel.getByText(/context: my account \(not read — the live window lapsed; sign in again to refresh\)/).isVisible().catch(() => false), 'the lapsed window is named honestly')
+
+    // ── TODO.ai-platform/04: the draft acts ──
+    // The service PREPARED the act: the card renders what the draft
+    // carries, names the drop honestly, and the user's click hands it to
+    // the HOST's seam — never a write API. The member is signed in from
+    // the account legs above.
+    await pg.getByLabel('Your question').fill('Please draft the R 60 application for the LC-500')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    const draftCard = panel.locator('.ai-draft[data-draft-act="application_prefill"]')
+    expect(await draftCard.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the draft card renders for the draft answer')
+    expect(await draftCard.getByText('Draft prepared by the AI assistant — New OIML R 60:2021 application').isVisible().catch(() => false), 'the card is honestly marked as AI-prepared')
+    expect(await draftCard.getByText('the Recommendation: OIML R 60:2021').isVisible().catch(() => false), 'the card lists the Recommendation field')
+    expect(await draftCard.getByText('the model designation: LC-500').isVisible().catch(() => false), 'the card lists the stated designation')
+    expect(await draftCard.getByText(/Left out — description \(“rated for 500 kg”\)/).isVisible().catch(() => false), 'the card names the dropped value + why')
+    expect(await draftCard.getByText(/nothing is submitted until you review and confirm it there yourself/).isVisible().catch(() => false), 'the card carries the confirmation honesty')
+    // the hand-off: the host's ack path — the payload rides the DOM event
+    // (requires_confirmation always), the panel steps out of the way.
+    await draftCard.getByRole('button', { name: 'Open in the form' }).click()
+    await pg.waitForTimeout(400)
+    const received = await pg.evaluate(() => window.__aiDrafts)
+    expect(received.length === 1 && received[0].kind === 'draft' && received[0].requires_confirmation === true, 'the draft rides the DOM seam with requires_confirmation — never a write API')
+    expect(received[0].fields?.standard_doc === 'urn:oiml:pub:r:60:2021' && received[0].fields?.model_designation === 'LC-500', 'the host receives exactly the service-validated fields')
+    expect(await panel.isVisible().catch(() => false) === false, 'the accepted hand-off closes the panel (the form owns the draft now)')
+    // the refusal path: the host declines, the card says so honestly and
+    // names the way out — the draft is never silently dropped.
+    await launcher.click()
+    await panel.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    await pg.evaluate(() => { window.__aiDraftMode = 'refuse' })
+    await pg.getByLabel('Your question').fill('Please draft the R 60 application again')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    const draftCard2 = panel.locator('.ai-draft[data-draft-act="application_prefill"]').last()
+    await draftCard2.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    await draftCard2.getByRole('button', { name: 'Open in the form' }).click()
+    expect(await draftCard2.getByText(/This page could not open the draft — open the platform’s application wizard and ask again from there/).waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the refused hand-off is honest and names the way out')
     await ctx.close()
   }
 

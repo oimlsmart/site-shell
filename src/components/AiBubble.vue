@@ -61,6 +61,7 @@ import {
   type AiContextApplied,
   type AiPageContext,
 } from '../ai/context'
+import { dispatchAiDraft, draftFieldLines, type AiDraft } from '../ai/drafts'
 import { renderMarkdownLite } from '../ai/markdown'
 // The typed re-export, never the .mjs source: the strict-TS consumers
 // (the platform's vue-tsc) cannot resolve an untyped .mjs import — the
@@ -90,6 +91,12 @@ interface Props {
    *  says when the live data was read). Members only, flag-gated, off by
    *  default. */
   accountChip?: boolean
+  /** TODO.ai-platform/04: the draft acts — the service PREPARES an act
+   *  (the application prefill is the pilot), the panel renders the draft
+   *  card, and the user's click hands it to the host's real form through
+   *  the DOM seam (src/ai/drafts.ts). The panel never writes; the commit
+   *  is the user's own click in the form. Flag-gated, off by default. */
+  draftActs?: boolean
 }
 const props = withDefaults(defineProps<Props>(), {
   apiBase: SERVICES.ai,
@@ -97,6 +104,7 @@ const props = withDefaults(defineProps<Props>(), {
   fabBottom: '1rem',
   contextChips: false,
   accountChip: false,
+  draftActs: false,
 })
 
 const open = ref(false)
@@ -168,6 +176,38 @@ const pickerDraft = ref('')
 const pendingApplied = ref<AiContextApplied | undefined>(undefined)
 /** the live records for the answer currently streaming (TODO.ai-platform/03) */
 const pendingRecords = ref<AiLiveRecord[] | undefined>(undefined)
+/** the prepared act for the answer currently streaming (TODO.ai-platform/04) */
+const pendingDraftAct = ref<AiDraft | undefined>(undefined)
+/** per-message draft hand-off state: the card's own honest status */
+const draftHandoff = ref<Record<string, 'sending' | 'opened' | 'refused'>>({})
+
+/** Hand the draft to the host's real form (TODO.ai-platform/04): the DOM
+ *  seam carries it (never a write API); the card reports the host's ack
+ *  honestly. The panel itself never holds a credential — the commit is
+ *  the user's own click inside the form. */
+async function openDraftInForm(messageId: string, draft: AiDraft) {
+  if (draftHandoff.value[messageId] === 'sending') return
+  draftHandoff.value = { ...draftHandoff.value, [messageId]: 'sending' }
+  statusLine.value = 'Handing the draft to the form.'
+  const ack = await dispatchAiDraft(draft)
+  if (ack.accepted) {
+    draftHandoff.value = { ...draftHandoff.value, [messageId]: 'opened' }
+    statusLine.value = 'The draft is open in the form — review it and confirm there.'
+    // the form has it now: the panel steps out of the way
+    if (open.value) togglePanel()
+  } else {
+    draftHandoff.value = { ...draftHandoff.value, [messageId]: 'refused' }
+    statusLine.value = 'This page could not open the draft.'
+  }
+}
+
+/** The card's honest footer per state (the refusal names the way out). */
+function draftHandoffNote(state?: 'sending' | 'opened' | 'refused'): string {
+  if (state === 'sending') return 'Handing the draft to the form…'
+  if (state === 'opened') return 'Opened in the form — review every field; only your own confirmation submits.'
+  if (state === 'refused') return 'This page could not open the draft — open the platform’s application wizard and ask again from there.'
+  return ''
+}
 
 const entityRef = computed(() => published.value?.entity ?? null)
 const pageLabel = computed(
@@ -459,6 +499,7 @@ async function send(text: string) {
   pendingCitations.value = []
   pendingApplied.value = undefined
   pendingRecords.value = undefined
+  pendingDraftAct.value = undefined
   statusLine.value = 'The assistant is answering.'
   abort = new AbortController()
   nextTick(() => scrollToEnd())
@@ -483,6 +524,10 @@ async function send(text: string) {
           if (records) pendingRecords.value = records
           nextTick(() => scrollToEnd())
         },
+        onDraft: (d) => {
+          pendingDraftAct.value = d
+          nextTick(() => scrollToEnd())
+        },
         onToken: (tok) => {
           pendingText.value += tok
           nextTick(() => scrollToEnd())
@@ -500,6 +545,11 @@ async function send(text: string) {
             // point-in-time read: the resumed session keeps the honest
             // context line from the persisted echo, not the cards)
             records: pendingRecords.value ?? null,
+            // the prepared act (TODO.ai-platform/04) — the draft card;
+            // ephemeral like the records: the conversation record keeps
+            // the words, never a stale draft (the real form owns it once
+            // the user opens it there)
+            draft: pendingDraftAct.value ?? null,
             model: info.model,
             followUps: info.followUps,
             contextApplied: applied ?? null,
@@ -521,6 +571,7 @@ async function send(text: string) {
           pendingText.value = ''
           pendingCitations.value = []
           pendingRecords.value = undefined
+          pendingDraftAct.value = undefined
           statusLine.value = 'Answer complete.'
           void refreshConversations()
         },
@@ -541,6 +592,7 @@ async function send(text: string) {
       pendingCitations.value = []
       pendingApplied.value = undefined
       pendingRecords.value = undefined
+      pendingDraftAct.value = undefined
       statusLine.value = ''
     }
   } catch (e: unknown) {
@@ -549,6 +601,7 @@ async function send(text: string) {
       pendingText.value = ''
       pendingCitations.value = []
       pendingApplied.value = undefined
+      pendingDraftAct.value = undefined
     } else {
       errorText.value = 'The assistant is unreachable — check the connection and retry.'
     }
@@ -760,6 +813,39 @@ onBeforeUnmount(() => {
                   </a>
                 </li>
               </ul>
+              <!-- the draft card (TODO.ai-platform/04): the service
+                   PREPARED the act — the card opens it in the host's real
+                   form through the DOM seam; the commit is the user's own
+                   click there. Ephemeral: never persisted with the
+                   conversation (a resumed session keeps the words, not a
+                   stale draft). -->
+              <div v-if="props.draftActs && m.draft" class="ai-draft" :data-draft-act="m.draft.act">
+                <p class="ai-draft-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+                  </svg>
+                  Draft prepared by the AI assistant — {{ m.draft.title }}
+                </p>
+                <ul class="ai-draft-fields">
+                  <li v-for="(line, i) in draftFieldLines(m.draft)" :key="i">{{ line }}</li>
+                </ul>
+                <ul v-if="m.draft.dropped?.length" class="ai-draft-dropped">
+                  <li v-for="(d, i) in m.draft.dropped" :key="i">Left out — {{ d.field }} (“{{ d.value }}”): {{ d.reason }}.</li>
+                </ul>
+                <p class="ai-draft-honest">
+                  Prepared from your words only. It opens in the real form with every field editable —
+                  nothing is submitted until you review and confirm it there yourself.
+                </p>
+                <div class="ai-draft-actions">
+                  <button
+                    type="button"
+                    class="ai-draft-open"
+                    :disabled="draftHandoff[m.id] === 'sending' || draftHandoff[m.id] === 'opened'"
+                    @click="openDraftInForm(m.id, m.draft!)"
+                  >{{ draftHandoff[m.id] === 'opened' ? 'Opened in the form' : 'Open in the form' }}</button>
+                  <span v-if="draftHandoffNote(draftHandoff[m.id])" class="ai-draft-note" role="status">{{ draftHandoffNote(draftHandoff[m.id]) }}</span>
+                </div>
+              </div>
               <ul v-if="m.citations?.length" class="ai-cites">
                 <li v-for="(c, i) in m.citations.slice(0, 5)" :key="i" class="ai-cite">
                   <a v-if="citationUrl(c)" :href="citationUrl(c)" target="_blank" rel="noopener noreferrer" class="ai-cite-link">
@@ -791,6 +877,18 @@ onBeforeUnmount(() => {
                 </a>
               </li>
             </ul>
+            <div v-if="props.draftActs && pendingDraftAct" class="ai-draft" :data-draft-act="pendingDraftAct.act">
+              <p class="ai-draft-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+                </svg>
+                Draft prepared by the AI assistant — {{ pendingDraftAct.title }}
+              </p>
+              <ul class="ai-draft-fields">
+                <li v-for="(line, i) in draftFieldLines(pendingDraftAct)" :key="i">{{ line }}</li>
+              </ul>
+              <p class="ai-draft-honest">It will open in the real form with every field editable — nothing is submitted until you confirm it there yourself.</p>
+            </div>
           </div>
           <p v-if="errorText" class="ai-error" role="alert">{{ errorText }}</p>
         </div>
@@ -1091,6 +1189,17 @@ html.dark .ai-bubble-root {
 .ai-rec-label { font-weight: 600; color: var(--ai-accent); }
 .ai-rec-status { display: inline-block; padding: 0 0.375rem; border: 1px solid var(--ai-rule); border-radius: 999px; color: var(--ai-ink-muted); font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.04em; }
 .ai-rec-detail { flex-basis: 100%; color: var(--ai-ink-muted); font-size: 0.6875rem; }
+/* the draft card (TODO.ai-platform/04) — the AI-prepared act; the tokens
+   ride the same --ai-* fallbacks as the rest of the panel */
+.ai-draft { margin: 0.625rem 0 0; padding: 0.625rem 0.75rem; border: 1px solid var(--ai-rule); border-left: 3px solid var(--ai-accent); border-radius: 0.5rem; background: var(--ai-bg-raised); }
+.ai-draft-title { display: flex; align-items: center; gap: 0.375rem; margin: 0; font-size: 0.75rem; font-weight: 600; color: var(--ai-accent); }
+.ai-draft-fields { list-style: none; margin: 0.375rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.125rem; font-size: 0.75rem; }
+.ai-draft-dropped { list-style: none; margin: 0.375rem 0 0; padding: 0.375rem 0 0; border-top: 1px dashed var(--ai-rule); display: flex; flex-direction: column; gap: 0.125rem; font-size: 0.6875rem; color: var(--ai-ink-muted); }
+.ai-draft-honest { margin: 0.5rem 0 0; font-size: 0.6875rem; color: var(--ai-ink-muted); }
+.ai-draft-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+.ai-draft-open { min-height: 44px; padding: 0 0.875rem; border: none; border-radius: 0.5rem; background: var(--ai-accent); color: var(--ai-accent-ink); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.ai-draft-open:disabled { opacity: 0.55; cursor: default; }
+.ai-draft-note { font-size: 0.6875rem; color: var(--ai-ink-muted); }
 .ai-docpick {
   border: 1px solid var(--ai-rule);
   border-radius: 10px;

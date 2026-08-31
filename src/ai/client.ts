@@ -18,6 +18,7 @@
  */
 
 import type { AiAskContext, AiContextApplied } from './context'
+import { asDraft, type AiDraft } from './drafts'
 
 export interface AiCitation {
   doc_id?: string
@@ -43,6 +44,10 @@ export interface AiMessage {
    *  the "my account" context; ephemeral: a point-in-time read, never
    *  persisted with the conversation) */
   records?: AiLiveRecord[] | null
+  /** the prepared act (TODO.ai-platform/04) — the draft card; ephemeral
+   *  like the records: a point-in-time preparation, never persisted with
+   *  the conversation (the real form owns the draft once it opens) */
+  draft?: AiDraft | null
   model?: string
   followUps?: string[]
   /** the context the service APPLIED to this answer (the honest context
@@ -74,6 +79,10 @@ export interface AiQuota {
 
 export interface AskEvents {
   onCitations?: (citations: AiCitation[], quota?: AiQuota, contextApplied?: AiContextApplied, records?: AiLiveRecord[]) => void
+  /** the prepared draft (TODO.ai-platform/04) — present on draft-act
+   *  answers only; ephemeral by design (never persisted with the
+   *  conversation: a draft is a point-in-time preparation) */
+  onDraft?: (draft: AiDraft) => void
   onToken?: (token: string) => void
   onDone?: (info: { queryHash: string | null; followUps: string[]; model?: string; contextApplied?: AiContextApplied }) => void
 }
@@ -190,6 +199,8 @@ export async function ask(
     const data = await res.json().catch(() => null)
     const applied = asApplied(data?.context_applied)
     if (Array.isArray(data?.citations)) ev.onCitations?.(data.citations, data.quota, applied, asRecords(data?.records))
+    const jsonDraft = asDraft(data?.draft)
+    if (jsonDraft) ev.onDraft?.(jsonDraft)
     if (typeof data?.answer === 'string') ev.onToken?.(data.answer)
     ev.onDone?.({
       queryHash: typeof data?.query_hash === 'string' ? data.query_hash : null,
@@ -223,6 +234,8 @@ export async function ask(
       if (evt.type === 'citations') {
         streamApplied = asApplied(evt.context_applied) ?? streamApplied
         ev.onCitations?.(Array.isArray(evt.citations) ? (evt.citations as AiCitation[]) : [], evt.quota as AiQuota | undefined, streamApplied, asRecords(evt.records))
+        const streamDraft = asDraft(evt.draft)
+        if (streamDraft) ev.onDraft?.(streamDraft)
       } else if (evt.type === 'token') {
         if (typeof evt.v === 'string') ev.onToken?.(evt.v)
       } else if (evt.type === 'done') {
