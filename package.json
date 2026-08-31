@@ -15,6 +15,7 @@
     ".": "./src/index.ts",
     "./components/*": "./src/components/*",
     "./ai/context": "./src/ai/context.ts",
+    "./ai/drafts": "./src/ai/drafts.ts",
     "./ai/client": "./src/ai/client.ts",
     "./ai/markdown": "./src/ai/markdown.ts",
     "./ai/*": "./src/ai/*",
