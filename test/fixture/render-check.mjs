@@ -183,9 +183,13 @@ try {
           ? { kind: c.kind, label: c.label, scoped_to: null, note: 'document-not-in-corpus' }
           : { kind: c.kind, label: c.label, scoped_to: c.doc ? 'OIML R 60:2021' : null }
       return [
-        `data: ${JSON.stringify({ type: 'citations', citations: [{ docidentifier: 'OIML R 60:2017', edition: '2017', clause_title: 'Metrological requirements', status: 'in-force', url: 'https://www.oiml.org/en/publications/r60' }], quota: { used: 1, limit: 20 }, context_applied: applied })}`,
+        `data: ${JSON.stringify({ type: 'citations', citations: [
+          { docidentifier: 'OIML R 60:2017', edition: '2017', clause_title: 'Metrological requirements', status: 'in-force', url: 'https://www.oiml.org/en/publications/r60' },
+          { docidentifier: 'OIML V 002', clause_title: 'Stub link policy', url: 'javascript:alert(1)' },
+        ], quota: { used: 1, limit: 20 }, context_applied: applied })}`,
         `data: {"type":"token","v":"R 60 covers **load cells**."}`,
         `data: {"type":"token","v":"<img src=x onerror=window.__xssFired=1>"}`,
+        `data: ${JSON.stringify({ type: 'token', v: ' Accuracy `class C3` spans 0 to 5.' })}`,
         `data: ${JSON.stringify({ type: 'done', query_hash: 'abcdef0123456789', follow_ups: ['What is accuracy class C3?'], model: 'stub-model', context_applied: applied })}`,
         ``,
       ].join('\n\n')
@@ -239,6 +243,15 @@ try {
     expect(await panel.getByText('OIML R 60:2017').isVisible().catch(() => false), 'the citation card renders the docidentifier')
     expect(await panel.getByText('Metrological requirements').isVisible().catch(() => false), 'the citation card renders the clause title')
     expect(await panel.getByRole('button', { name: 'What is accuracy class C3?' }).isVisible().catch(() => false), 'the follow-up chip renders')
+    // the markdown placeholder collision: a code span coexists with bare
+    // digits in the same answer — the digits stay digits, the span
+    // renders exactly once
+    expect(await panel.getByText('spans 0 to 5').isVisible().catch(() => false), 'bare digits beside a code span stay digits (no placeholder collision)')
+    expect((await panel.locator('.ai-md code', { hasText: 'class C3' }).count()) === 1, 'the code span renders exactly once')
+    // the citation link policy: only http(s) URLs become links — the
+    // stub's javascript: citation renders as text, never as an anchor
+    expect(await panel.getByText('OIML V 002').isVisible().catch(() => false), 'the scheme-less citation still renders')
+    expect(await panel.locator('a[href^="javascript:"]').count() === 0, 'a javascript: citation URL never becomes a link')
 
     // ── TODO.ai-platform/02: the context chips ──
     // The row offers what the page published — the fixture publishes a
@@ -269,6 +282,15 @@ try {
     expect(await panel.getByText('context: this certificate R60/2021-A-EX1-26.01').isVisible().catch(() => false), 'the honest context line on the entity-grounded answer')
     const lines = await panel.locator('.ai-context-line').allInnerTexts()
     expect(lines.length === 2 && lines[0].includes('none (general corpus)') && lines[1].includes('this certificate'), 'the transcript marks the context per answer across the mid-session change')
+
+    // Esc inside the picker closes the PICKER, not the panel: the
+    // keydown must not reach the window listener that closes the panel
+    await chipDoc.click()
+    await pg.locator('#ai-docpick-input').fill('OIML R 60')
+    await pg.locator('#ai-docpick-input').press('Escape')
+    await pg.waitForTimeout(300)
+    expect(!(await pg.locator('#ai-docpick-input').isVisible().catch(() => false)), 'Esc closes the document picker')
+    expect(await panel.isVisible().catch(() => false), 'Esc inside the picker leaves the panel open')
 
     // The document picker: pick a document the corpus doesn't carry →
     // the echo's note renders the honest degradation.

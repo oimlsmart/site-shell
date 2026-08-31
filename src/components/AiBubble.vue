@@ -229,6 +229,13 @@ function citationLabel(c: AiCitation): string {
   return c.edition ? `${doc} (${c.edition})` : doc
 }
 
+/** A citation renders as a link only for http(s) URLs — the same policy
+ *  markdown.ts imposes on model-emitted links. Anything else (a
+ *  compromised service echoing javascript:) renders as plain text. */
+function citationUrl(c: AiCitation): string | undefined {
+  return typeof c.url === 'string' && /^https?:\/\//i.test(c.url) ? c.url : undefined
+}
+
 function citationStatus(c: AiCitation): string | null {
   if (c.status === 'in-force' || c.status === 'joint') return null
   if (c.superseded_by) return `Superseded by ${c.superseded_by}`
@@ -680,7 +687,7 @@ onBeforeUnmount(() => {
               <p v-if="props.contextChips" class="ai-context-line">{{ lineFor(m) }}</p>
               <ul v-if="m.citations?.length" class="ai-cites">
                 <li v-for="(c, i) in m.citations.slice(0, 5)" :key="i" class="ai-cite">
-                  <a v-if="c.url" :href="c.url" target="_blank" rel="noopener noreferrer" class="ai-cite-link">
+                  <a v-if="citationUrl(c)" :href="citationUrl(c)" target="_blank" rel="noopener noreferrer" class="ai-cite-link">
                     <span class="ai-cite-doc">{{ citationLabel(c) }}</span>
                     <span v-if="c.clause_title" class="ai-cite-clause">{{ c.clause_title }}</span>
                   </a>
@@ -723,7 +730,7 @@ onBeforeUnmount(() => {
                   placeholder="OIML R 60-1 or urn:oiml:pub:r:60-1:2021"
                   maxlength="80"
                   @keydown.enter.prevent="pickDocument"
-                  @keydown.esc.prevent="pickerOpen = false"
+                  @keydown.esc.prevent.stop="pickerOpen = false"
                 />
                 <button type="button" class="ai-btn ai-btn--primary ai-docpick-go" :disabled="!pickerDraft.trim()" @click="pickDocument">Pick</button>
               </div>
@@ -905,7 +912,7 @@ html.dark .ai-bubble-root {
 .ai-btn--ghost:hover { border-color: var(--ai-accent); }
 
 /* ── sessions view ── */
-.ai-sessions { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.ai-sessions { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .ai-account {
   border: 1px solid var(--ai-rule);
   border-radius: 10px;
@@ -942,7 +949,7 @@ html.dark .ai-bubble-root {
 
 /* ── chat view ── */
 .ai-chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.ai-messages { flex: 1; overflow-y: auto; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.625rem; }
+.ai-messages { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.625rem; }
 .ai-greeting { color: var(--ai-ink-soft); font-size: 0.875rem; }
 .ai-greeting-note { color: var(--ai-ink-muted); font-size: 0.75rem; margin-top: 0.5rem; }
 .ai-msg { max-width: 92%; padding: 0.5rem 0.75rem; border-radius: 10px; overflow-wrap: break-word; }
