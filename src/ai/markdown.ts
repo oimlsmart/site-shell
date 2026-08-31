@@ -10,18 +10,32 @@
  * only, always rel="noopener" target="_blank"). The answer contract's
  * typed unit blocks ([[u:…]] refs) are NOT expanded here — the citation
  * cards carry the sources; the full renderer lives on ai.oimlsmart.org.
+ *
+ * Code spans and fences are restored through sentinel-wrapped
+ * placeholders (U+0001 + index + U+0001), never bare digits: the
+ * restore pass matches sentinel-delimited digit runs, so a bare "0" in
+ * the answer text can no longer collide with a span's index and render
+ * the span in place of the number (a lone digit line could resurrect a
+ * fence the same way). Literal U+0001 never survives the entry strip,
+ * so the placeholder grammar is unforgeable.
  */
+
+const SENTINEL = '\u0001'
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
+
+const wrap = (i: number) => `${SENTINEL}${i}${SENTINEL}`
+const PLACEHOLDER = new RegExp(`${SENTINEL}(\\d+)${SENTINEL}`)
+const PLACEHOLDER_LINE = new RegExp(`^${SENTINEL}(\\d+)${SENTINEL}$`)
 
 function renderInline(escaped: string): string {
   // `code` first so its contents skip the emphasis/link substitutions
   const codes: string[] = []
   let out = escaped.replace(/`([^`\n]+)`/g, (_m, code) => {
     codes.push(String(code))
-    return `${codes.length - 1}`
+    return wrap(codes.length - 1)
   })
   out = out
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -30,16 +44,22 @@ function renderInline(escaped: string): string {
       const safeHref = String(href).replace(/&quot;/g, '%22')
       return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${text}</a>`
     })
-  return out.replace(/(\d+)/g, (m, i) => (codes[Number(i)] !== undefined ? `<code>${codes[Number(i)]}</code>` : m))
+  return out.replace(new RegExp(PLACEHOLDER, 'g'), (m, i) =>
+    codes[Number(i)] !== undefined ? `<code>${codes[Number(i)]}</code>` : m,
+  )
 }
 
 export function renderMarkdownLite(src: string): string {
-  const escaped = escapeHtml(src)
+  // the entry strip: a literal sentinel in the answer must not forge a
+  // placeholder (worst case it re-rendered an existing span — but the
+  // grammar is cheap to make unforgeable)
+  const clean = src.replace(new RegExp(SENTINEL, 'g'), '')
+  const escaped = escapeHtml(clean)
   const blocks: string[] = []
   // fenced code blocks first — their contents render verbatim
   const withoutFences = escaped.replace(/```[a-z]*\n([\s\S]*?)```/g, (_m, code) => {
     blocks.push(`<pre><code>${String(code).replace(/\n$/, '')}</code></pre>`)
-    return `\n\n${blocks.length - 1}\n\n`
+    return `\n\n${wrap(blocks.length - 1)}\n\n`
   })
 
   const lines = withoutFences.split('\n')
@@ -62,11 +82,11 @@ export function renderMarkdownLite(src: string): string {
 
   for (const line of lines) {
     const trimmed = line.trim()
-    const fenceRef = trimmed.match(/^(\d+)$/)
-    if (fenceRef && blocks[Number(fenceRef[1])] !== undefined) {
+    const ref = trimmed.match(PLACEHOLDER_LINE)
+    if (ref && blocks[Number(ref[1])] !== undefined) {
       flushPara()
       flushList()
-      html.push(blocks[Number(fenceRef[1])])
+      html.push(blocks[Number(ref[1])])
       continue
     }
     if (!trimmed) {
