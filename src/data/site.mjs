@@ -28,9 +28,10 @@ export const PARTNERS = {
   github: 'https://github.com/oimlsmart',
 }
 
-/** The estate's service surfaces referenced by the footer. The status
- *  service lives on its own origin (a Cloudflare Worker), so the link
- *  is literal here, never front-door derived. */
+/** The estate's service surfaces referenced by the chrome. The status
+ *  service and the AI service live on their own origins, so the links
+ *  are literal here, never front-door derived. */
 export const SERVICES = {
   status: 'https://status.oimlsmart.org',
+  ai: 'https://ai.oimlsmart.org',
 }

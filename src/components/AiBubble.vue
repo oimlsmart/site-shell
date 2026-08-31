@@ -61,6 +61,7 @@ import {
   type AiPageContext,
 } from '../ai/context'
 import { renderMarkdownLite } from '../ai/markdown'
+import { SERVICES } from '../data/site.mjs'
 
 interface Props {
   /** The AI service origin. */
@@ -80,7 +81,7 @@ interface Props {
   contextChips?: boolean
 }
 const props = withDefaults(defineProps<Props>(), {
-  apiBase: 'https://ai.oimlsmart.org',
+  apiBase: SERVICES.ai,
   mode: 'standalone',
   fabBottom: '1rem',
   contextChips: false,

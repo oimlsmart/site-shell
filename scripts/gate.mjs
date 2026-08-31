@@ -64,6 +64,11 @@ check(showcaseHtml.includes('account-chip') && showcaseHtml.includes('account-av
   check(bubbleHtml.includes('ai-stub.invalid'), 'the bubble serialized the configured service origin')
   check(!indexHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher stays OFF by default (the flagless index page)')
   check(!docsHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher stays OFF on the flagless docs page')
+  const standaloneHtml = read('bubble-standalone', 'index.html')
+  // the direct mount chunks into a shared index.*.js — the island's opts
+  // (name: AiBubble) + the serialized origin are the stable markers
+  check(/name&quot;:&quot;AiBubble/.test(standaloneHtml), 'the standalone AI island compiled into its fixture page')
+  check(standaloneHtml.includes('ai-stub.invalid'), 'the standalone mount serialized the configured service origin')
 }
 {
   const first = docsHtml.indexOf('guides/first')

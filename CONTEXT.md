@@ -53,7 +53,9 @@ these are the domain names.
   properties with their own chrome). Opt-in per property via
   `Base`/`SiteHeader`'s `aiAssistant` prop — absent means off.
   Cross-host theming rides `--ai-*` variables (shell token preferred,
-  the house value as fallback), never the host's Tailwind scan.
+  the house value as fallback), never the host's Tailwind scan. The
+  AI service origin lives in the site constants leaf (`SERVICES.ai`);
+  the component stays one island by design (ADR-0004).
 - **Bubble bridge** — the AI service's sign-in handoff for embedded
   panels: `/auth/login?mode=bubble&origin=…` runs the OIDC round-trip,
   the callback's confirm page postMessages the service session token to

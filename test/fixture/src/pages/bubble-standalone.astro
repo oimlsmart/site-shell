@@ -1,0 +1,17 @@
+---
+/**
+ * The standalone AI bubble fixture — a property with its own chrome
+ * mounts the component directly (no aiAssistant flag on Base): the
+ * floating launcher at EVERY breakpoint, the header icon never. The
+ * render gate stubs the service.
+ */
+import { Base, AiBubble } from '@oimlsmart/site-shell'
+import '../styles/app.css'
+---
+
+<Base title="AI standalone" description="The standalone assistant bubble fixture.">
+  <main class="max-w-3xl mx-auto px-6 py-16">
+    <p class="text-ink-soft">The standalone mount — the floating launcher at every breakpoint.</p>
+  </main>
+  <AiBubble client:load mode="standalone" apiBase="https://ai-stub.invalid" />
+</Base>
