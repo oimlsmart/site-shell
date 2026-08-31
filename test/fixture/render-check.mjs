@@ -328,8 +328,65 @@ try {
     await ctx.close()
   }
 
+  // The panel in dark scheme: the --ai-* variables resolve through the
+  // shell tokens' dark block (supplementary to the layout legs above —
+  // a color probe alone proves nothing about a blank page).
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    await ctx.route('https://ai-stub.invalid/**', (route) => route.fulfill({ status: 500, body: 'stub' }))
+    await ctx.addInitScript(`
+      localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "dark");
+      document.documentElement.classList.add(${JSON.stringify(THEME_CLASS)});
+    `)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
+    await pg.waitForTimeout(400)
+    await pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first().click()
+    const panel = pg.locator('#ai-bubble-panel')
+    const opened = await panel.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
+    if (!opened) failures.push('bubble dark: the panel did not open')
+    else {
+      const r = await panel.evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, h: el.getBoundingClientRect().height }))
+      if (r.bg !== 'rgb(19, 35, 61)') failures.push(`bubble dark: the panel background is ${r.bg}, expected the dark paper token (19, 35, 61)`)
+      if (r.h < 200) failures.push('bubble dark: the panel has no layout')
+    }
+    await ctx.close()
+  }
+
+  // Soft navigation (ClientRouter) with the panel open: the body-
+  // teleported launcher/panel must not survive the swap as orphans.
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    await ctx.route('https://ai-stub.invalid/**', (route) => route.fulfill({ status: 500, body: 'stub' }))
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
+    await pg.waitForTimeout(400)
+    await pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first().click()
+    if (!(await pg.locator('#ai-bubble-panel').waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)))
+      failures.push('bubble vt: the panel did not open before navigation')
+    // an in-origin anchor click (the federation links are front-door
+    // absolute by design — none of them navigate within the fixture)
+    await pg.evaluate(() => {
+      const a = document.createElement('a')
+      a.href = '/docs/'
+      document.body.appendChild(a)
+      a.click()
+    })
+    await pg.waitForTimeout(1200)
+    const after = await pg.evaluate(() => ({
+      path: location.pathname,
+      panels: document.querySelectorAll('#ai-bubble-panel').length,
+      fabs: document.querySelectorAll('.ai-launcher--fab').length,
+      roots: document.querySelectorAll('body > .ai-bubble-root').length,
+    }))
+    if (after.path !== '/docs/' || after.panels > 0 || after.fabs > 0 || after.roots > 0)
+      failures.push(`bubble vt: soft navigation left orphaned AI DOM or did not navigate (${JSON.stringify(after)})`)
+    await ctx.close()
+  }
+
   // The bubble on a small screen: the FAB carries the launch, the panel
-  // is a full sheet.
+  // is a full sheet — announced modal, and Tab cannot escape behind it.
   {
     const ctx = await browser.newContext({ viewport: { width: 375, height: 700 } })
     await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
@@ -345,6 +402,21 @@ try {
       const box = await panel.boundingBox()
       if (!box || Math.abs(box.width - 375) > 2 || Math.abs(box.height - 700) > 2)
         failures.push(`bubble mobile: the panel is not a full sheet (${box ? `${Math.round(box.width)}×${Math.round(box.height)}` : 'no box'})`)
+      if ((await panel.getAttribute('aria-modal')) !== 'true')
+        failures.push('bubble mobile: the full-screen sheet must announce aria-modal="true"')
+      // Tab containment: Shift+Tab from the panel's first focusable
+      // wraps to the last — focus never reaches the page behind the sheet
+      await panel.getByRole('button', { name: 'Conversations' }).focus()
+      await pg.keyboard.press('Shift+Tab')
+      await pg.waitForTimeout(200)
+      const wrapped = await pg.evaluate(() => {
+        const el = document.activeElement
+        const panel = document.querySelector('#ai-bubble-panel')
+        const focusables = panel ? [...panel.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled])')] : []
+        const last = focusables[focusables.length - 1]
+        return { isLast: el === last, outsidePanel: !panel?.contains(el), lastTag: last?.tagName ?? 'none' }
+      })
+      if (!wrapped.isLast) failures.push(`bubble mobile: Shift+Tab did not wrap inside the sheet (outsidePanel=${wrapped.outsidePanel})`)
     }
     await ctx.close()
   }
