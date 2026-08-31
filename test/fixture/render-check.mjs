@@ -173,20 +173,29 @@ try {
     // The stub echoes context_applied from the DECLARED context (the
     // service's contract, docs/API.md §2.1.1 in the rag repo): none when
     // nothing was declared; the not-in-corpus note for a 999 document;
-    // scoped_to when a resolvable doc rode along.
+    // scoped_to when a resolvable doc rode along; the account kind's
+    // live echo + the records (TODO.ai-platform/03) — and the honest
+    // window-lapsed note when the question asks for it.
     const asked = []
     const sseFor = (body) => {
       const c = body.context
+      const accountLive = { kind: 'account', label: 'my account', scoped_to: null, live: { read_at: '2026-08-31T09:00:00Z', stores: ['applications', 'certificates'], records: 2 } }
+      const accountRecords = [
+        { store: 'applications', id: 'app-1', label: 'Application APP-2026-001 — R 60', url: 'https://demo.oimlsmart.org/app/portal/applications/app-1', status: 'SUBMITTED', detail: 'evaluation in progress; 1 test request dispatched' },
+        { store: 'certificates', id: 'cert-1', label: 'Certificate R60/2021-A-EX1-26.01', url: 'https://demo.oimlsmart.org/app/portal/certificates/cert-1', status: 'ISSUED' },
+      ]
       const applied = !c
         ? { kind: 'none', scoped_to: null }
-        : c.doc && String(c.doc).includes('999')
-          ? { kind: c.kind, label: c.label, scoped_to: null, note: 'document-not-in-corpus' }
-          : { kind: c.kind, label: c.label, scoped_to: c.doc ? 'OIML R 60:2021' : null }
+        : c.kind === 'account'
+          ? (body.query.includes('window lapsed') ? { kind: 'account', label: c.label, scoped_to: null, note: 'live-window-expired' } : accountLive)
+          : c.doc && String(c.doc).includes('999')
+            ? { kind: c.kind, label: c.label, scoped_to: null, note: 'document-not-in-corpus' }
+            : { kind: c.kind, label: c.label, scoped_to: c.doc ? 'OIML R 60:2021' : null }
       return [
         `data: ${JSON.stringify({ type: 'citations', citations: [
           { docidentifier: 'OIML R 60:2017', edition: '2017', clause_title: 'Metrological requirements', status: 'in-force', url: 'https://www.oiml.org/en/publications/r60' },
           { docidentifier: 'OIML V 002', clause_title: 'Stub link policy', url: 'javascript:alert(1)' },
-        ], quota: { used: 1, limit: 20 }, context_applied: applied })}`,
+        ], quota: { used: 1, limit: 20 }, context_applied: applied, ...(c?.kind === 'account' && applied.live ? { records: accountRecords } : {}) })}`,
         `data: {"type":"token","v":"R 60 covers **load cells**."}`,
         `data: {"type":"token","v":"<img src=x onerror=window.__xssFired=1>"}`,
         `data: ${JSON.stringify({ type: 'token', v: ' Accuracy `class C3` spans 0 to 5.' })}`,
@@ -208,8 +217,14 @@ try {
     await ctx.route('https://ai-stub.invalid/api/conversations', (route) => {
       const auth = route.request().headers()['authorization']
       if (!auth) return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unauthorized', message: 'Sign in to sync your conversations across devices' } }) })
+      // the member's new conversation (the account legs ask signed-in)
+      if (route.request().method() === 'POST') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'conv-member-new' }) })
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ conversations: [{ id: 'conv-member-1', title: 'The platform question', updated_at: '2026-08-30T00:00:00Z', messages: 2 }] }) })
     })
+    // the member asks append to the conversation (the account legs) —
+    // the stub takes the write, the echo rides along
+    await ctx.route('https://ai-stub.invalid/api/conversations/*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }))
     await ctx.route('https://ai-stub.invalid/auth/me', (route) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authenticated: true, name: 'R. Tse', email: 'r.tse@example.org', roles: [], tier: 'member', sign_in_available: true }) }))
     await ctx.route('https://ai-stub.invalid/auth/login*', (route) =>
@@ -265,6 +280,9 @@ try {
     expect(await chipPage.isVisible().catch(() => false), 'the page chip renders with the published plain name')
     expect(await chipEntity.isVisible().catch(() => false), 'the entity chip renders with the published entity label')
     expect(await chipDoc.isVisible().catch(() => false), 'the document chip renders')
+    // TODO.ai-platform/03: the account chip is member-only — the
+    // anonymous visitor is never offered it.
+    expect((await panel.getByRole('button', { name: /My account/ }).count()) === 0, 'the account chip is never offered to the anonymous visitor')
     // the first answer (no chip picked) declared nothing and says so
     expect(asked.length === 1 && !('context' in asked[0]), 'no context rides a message the user did not pick')
     expect(await panel.locator('.ai-context-line').first().textContent().then((t) => t?.includes('context: none (general corpus)')).catch(() => false), 'the honest context line: none (general corpus)')
@@ -325,6 +343,30 @@ try {
     await popup.waitForLoadState()
     expect(await panel.getByText('Signed in as R. Tse').first().waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the bridge sign-in lands the member session')
     expect(await panel.getByText('The platform question').waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the member conversation list renders from the service')
+
+    // ── TODO.ai-platform/03: the "my account" chip (members only) ──
+    // The chip appears once signed in, honestly labeled; the declaration
+    // rides the ask; the echo's live line + the record cards render —
+    // and the lapsed window says so.
+    await panel.getByRole('button', { name: 'Conversations' }).click() // back to the chat view
+    const chipAccount = panel.getByRole('button', { name: 'My account — reads what you can see' })
+    expect(await chipAccount.isVisible().catch(() => false), 'the account chip renders for the signed-in member, honestly labeled')
+    await chipAccount.click()
+    expect((await chipAccount.getAttribute('aria-pressed')) === 'true', 'the account chip selects on tap')
+    await pg.getByLabel('Your question').fill('Where is my application?')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    await panel.getByText(/context: my account \(live/).waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    const accountAsk = asked.find((b) => b.context?.kind === 'account')
+    expect(!!accountAsk && accountAsk.context.label === 'my account', 'the account declaration rides the ask')
+    expect(await panel.getByText(/context: my account \(live, read .*\) — 2 records/).isVisible().catch(() => false), 'the live-read line renders from the echo (when + how many)')
+    expect(await panel.locator('.ai-recs .ai-rec').count() === 2, 'the record cards render')
+    expect(await panel.locator('.ai-rec-link[href="https://demo.oimlsmart.org/app/portal/applications/app-1"]').count() === 1, 'the record card links to the platform record')
+    expect(await panel.getByText('evaluation in progress; 1 test request dispatched').isVisible().catch(() => false), 'the record card carries the coarse detail')
+    // the honest degradation: the lapsed window says so, never a stale claim
+    await pg.getByLabel('Your question').fill('the window lapsed — what is waiting?')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    await panel.getByText(/not read — the live window lapsed/).waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    expect(await panel.getByText(/context: my account \(not read — the live window lapsed; sign in again to refresh\)/).isVisible().catch(() => false), 'the lapsed window is named honestly')
     await ctx.close()
   }
 
