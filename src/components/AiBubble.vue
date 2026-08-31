@@ -87,6 +87,29 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const open = ref(false)
+// The panel is a non-modal CARD on desktop, but a full-screen SHEET on
+// small viewports (body scroll locked, page covered) — there it must be
+// announced modal and Tab must not escape behind it.
+const isSheet = ref(false)
+let sheetMq: MediaQueryList | null = null
+const syncSheet = () => { isSheet.value = !!sheetMq?.matches }
+const panelEl = ref<HTMLElement | null>(null)
+
+function onPanelKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Tab' || !isSheet.value || !panelEl.value) return
+  // :not([disabled]) — focus() on a disabled control is a silent no-op,
+  // which would strand focus on the wrap source (the empty-draft Send)
+  const focusables = panelEl.value.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])',
+  )
+  if (focusables.length === 0) return
+  const first = focusables[0]
+  const last = focusables[focusables.length - 1]
+  const active = document.activeElement as HTMLElement | null
+  const inside = !!active && panelEl.value.contains(active)
+  if (e.shiftKey && (!inside || active === first)) { e.preventDefault(); last.focus() }
+  else if (!e.shiftKey && (!inside || active === last)) { e.preventDefault(); first.focus() }
+}
 // Teleport-in-island hydration: the SSR render and the client's first
 // render must agree (the teleport anchor is lossy through Astro's SSR),
 // so the body-teleported subtree exists only after mount.
@@ -510,7 +533,7 @@ function stop() {
 function togglePanel() {
   open.value = !open.value
   if (open.value) {
-    if (window.innerWidth < 640) document.body.style.overflow = 'hidden'
+    if (isSheet.value) document.body.style.overflow = 'hidden'
     // re-read the published context at open: the attribute mirror is the
     // truth for a panel that hydrated before the page published
     published.value = readPublishedContext()
@@ -540,6 +563,9 @@ function onComposerKeydown(e: KeyboardEvent) {
 
 onMounted(async () => {
   hydrated.value = true
+  sheetMq = window.matchMedia('(max-width: 639px)')
+  syncSheet()
+  sheetMq.addEventListener('change', syncSheet)
   // the page-context seam (TODO.ai-platform/02): the attribute mirror is
   // the current truth; the event carries live updates (route/entity
   // changes while the panel is mounted)
@@ -552,6 +578,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   abort?.abort()
   document.body.style.overflow = ''
+  sheetMq?.removeEventListener('change', syncSheet)
   window.removeEventListener('keydown', onGlobalKeydown)
   window.removeEventListener(AI_CONTEXT_EVENT, onContextEvent)
 })
@@ -605,11 +632,13 @@ onBeforeUnmount(() => {
       <div
         v-if="open"
         id="ai-bubble-panel"
+        ref="panelEl"
         class="ai-bubble-root ai-panel"
         :class="`ai-bubble--${props.mode}`"
         role="dialog"
-        aria-modal="false"
+        :aria-modal="isSheet"
         aria-label="OIML SMART AI assistant"
+        @keydown="onPanelKeydown"
       >
       <header class="ai-panel-head">
         <div class="ai-panel-title">
