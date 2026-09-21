@@ -1,18 +1,19 @@
 ---
 /**
- * The chrome-export page — renders ONLY the federation header and
- * footer so scripts/export-chrome.mjs can extract them (with the head's
- * asset tags) for injection into foreign-built sites (TODO.fix/07:
- * full-document generators like the glossarist concept-browser and the
- * Jekyll specs site that cannot mount the shell's Astro components).
- * Not linked from anywhere; the fixture build emits it as
+ * The chrome-export page — renders the federation header and footer
+ * WITH THE REFERENCE PRESET INJECTED (presets/www, via the fixture's
+ * config module) so scripts/export-chrome.mjs can extract a real
+ * property's chrome for injection into foreign-built sites (TODO.fix/
+ * 07: full-document generators that cannot mount the shell's Astro
+ * components). Not linked from anywhere; the fixture build emits it as
  * /chrome-export/index.html. The markers come from the shared contract
  * module — the same constants export-chrome.mjs slices on.
  */
-import SiteHeader from '@oimlsmart/site-shell/components/SiteHeader.astro'
-import SiteFooter from '@oimlsmart/site-shell/components/SiteFooter.astro'
+import SiteHeader from '@oimlsmart/site-shell/chrome/astro/SiteHeader.astro'
+import SiteFooter from '@oimlsmart/site-shell/chrome/astro/SiteFooter.astro'
 import { THEME_BOOTSTRAP } from '@oimlsmart/site-shell'
 import { CHROME_MARKERS } from '@oimlsmart/site-shell/data/chrome.mjs'
+import { BRAND, NAV_MODEL, FOOTER, SERVICES } from '../config.mjs'
 import '../styles/app.css'
 ---
 
@@ -24,10 +25,10 @@ import '../styles/app.css'
 </head>
 <body>
   <Fragment set:html={`<!-- ${CHROME_MARKERS.header.start} -->`} />
-  <SiteHeader />
+  <SiteHeader brand={BRAND} nav={NAV_MODEL} services={SERVICES} />
   <Fragment set:html={`<!-- ${CHROME_MARKERS.header.end} -->`} />
   <Fragment set:html={`<!-- ${CHROME_MARKERS.footer.start} -->`} />
-  <SiteFooter />
+  <SiteFooter brand={BRAND} nav={NAV_MODEL} footer={FOOTER} />
   <Fragment set:html={`<!-- ${CHROME_MARKERS.footer.end} -->`} />
   <script is:inline set:html={THEME_BOOTSTRAP} />
 </body>

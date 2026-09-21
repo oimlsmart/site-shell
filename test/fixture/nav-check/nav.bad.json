@@ -1,0 +1,8 @@
+{
+  "items": [
+    { "type": "link", "label": "Under construction", "href": "/placehold/", "matchPrefix": "/placehold" },
+    { "type": "link", "label": "Bounced", "href": "/stub/", "matchPrefix": "/stub" },
+    { "type": "link", "label": "Fine", "href": "/ok/", "matchPrefix": "/ok" },
+    { "type": "link", "label": "Missing", "href": "/missing/", "matchPrefix": "/missing" }
+  ]
+}

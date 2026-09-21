@@ -1,0 +1,8 @@
+{
+  "origin": "https://www.oimlsmart.org",
+  "items": [
+    { "type": "link", "label": "Fixture", "href": "/", "matchPrefix": "/" },
+    { "type": "link", "label": "Showcase", "href": "/showcase/", "matchPrefix": "/showcase" },
+    { "type": "link", "label": "Docs", "href": "/docs", "matchPrefix": "/docs" }
+  ]
+}

@@ -1,0 +1,17 @@
+---
+/**
+ * The bare fixture page — Base with NOTHING injected: no brand, no nav,
+ * no services, no footer. The package must render no header and no
+ * footer here — no machinery invents content — while the page itself
+ * (skip link, main landmark, theme bootstrap) stays intact. The render
+ * gate proves both halves.
+ */
+import { Base } from '@oimlsmart/site-shell'
+import '../styles/app.css'
+---
+
+<Base title="Bare" description="The config-less fixture page — no injected chrome.">
+  <main class="max-w-3xl mx-auto px-6 py-16">
+    <p class="text-ink-soft">Nothing is injected on this page, so the shell renders no header and no footer.</p>
+  </main>
+</Base>

@@ -1,8 +1,8 @@
 /**
- * The component registry (TODO.components) — the ONE definition of the
- * OIML SMART components. Every surface that lists the components (the
- * index's grid, the header's SMART and SMART+ dropdowns) reads from
- * here — never a second copy.
+ * The www component registry (TODO.components) — moved out of the
+ * package in 0.2.0 (it was src/data/components.ts; the package ships
+ * machinery only). Every www surface that lists the components (the
+ * index grid, the SMART and SMART+ nav dropdowns) reads this ONE copy.
  *
  * Scope split (2026-08):
  * - SMART tier: the published, expert-authored artifacts and the
@@ -16,29 +16,7 @@
  * routes, tier toggle on the destination page distinguishes scope.
  */
 
-export type ComponentTier = 'smart' | 'smartplus'
-export type ComponentDeployment = 'global' | 'member'
-
-export interface SmartComponent {
-  /** Display name. */
-  name: string
-  /** The canonical route (GitHub Pages serves the component's repo here). */
-  href: string
-  /** One-sentence description for the nav dropdown. */
-  desc: string
-  /** The brief index-card explanation (style-guide register). */
-  detail: string
-  /** The logo slug at /img/components/<slug>-{light,dark}.svg, when the component has one. */
-  logo?: string
-  /** One sentence stating what the logo shows (the style guide's rule). */
-  alt?: string
-  /** Scope tier — SMART (published artifacts + IA-level cert) or SMART+ (full instance lifecycle). */
-  tier: ComponentTier
-  /** For platform components: global (OIML-CS) or member (OIML SMART) deployment. */
-  deployment?: ComponentDeployment
-}
-
-export const COMPONENTS: readonly SmartComponent[] = [
+export const COMPONENTS = [
   // ── SMART tier ──────────────────────────────────────────────────
   {
     name: 'SMART Recommendations',
@@ -152,7 +130,7 @@ export const COMPONENTS: readonly SmartComponent[] = [
     tier: 'smartplus',
     deployment: 'member',
   },
-] as const
+]
 
 /** Filter helpers — the two dropdowns and the two index sections read these. */
 export const SMART_COMPONENTS = COMPONENTS.filter(c => c.tier === 'smart')

@@ -1,9 +1,17 @@
 ---
 import { Base, MinisiteNav, PageHero } from '@oimlsmart/site-shell'
+import { BRAND, NAV_MODEL, FOOTER, SERVICES } from '../config.mjs'
 import '../styles/app.css'
+
+// The fixture's brand overrides the preset's sign-in href the way a
+// consuming service would — proving the threading end to end. The nav
+// gains a product CTA the same way, proving the NavModel's third part
+// renders (the www preset itself carries none yet).
+const brand = { ...BRAND, signInHref: '/auth/login' }
+const nav = { ...NAV_MODEL, productCta: { label: 'Open the platform', href: '/platform' } }
 ---
 
-<Base title="Fixture" description="The site-shell fixture build." signInHref="/auth/login">
+<Base title="Fixture" description="The site-shell fixture build." brand={brand} nav={nav} services={SERVICES} footer={FOOTER}>
   <MinisiteNav sections={[
     { label: 'About', href: '/' },
     { label: 'Story', href: '/story' },
@@ -12,7 +20,7 @@ import '../styles/app.css'
   ]} base="/fixture" />
   <PageHero
     title="The fixture renders the house shell."
-    lede="Header, component-local nav, hero, and footer from the one package."
+    lede="Header, component-local nav, hero, and footer from the injected config."
   />
   <main class="max-w-3xl mx-auto px-6 py-16">
     <p class="text-ink-soft">The gate checks this page compiles and lays out in both color schemes.</p>

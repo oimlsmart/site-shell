@@ -1,0 +1,5 @@
+{
+  "items": [
+    { "type": "link", "label": "Fine", "href": "/ok/", "matchPrefix": "/ok" }
+  ]
+}
