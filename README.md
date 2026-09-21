@@ -51,7 +51,7 @@ import '../styles/app.css'
 
 ### The AI assistant bubble (opt-in)
 
-The estate's AI assistant (ai.oimlsmart.org) embeds as ONE component —
+The platform's AI assistant (ai.oimlsmart.org) embeds as ONE component —
 never a per-app copy. Off by default; a property opts in per page shell:
 
 ```astro
@@ -74,7 +74,7 @@ import { AiBubble } from '@oimlsmart/site-shell'
 The floating launcher shows at every breakpoint in standalone mode. A
 host with its own bottom-right affordance lifts the launcher clear of
 it: `fabBottom="5rem"` (any CSS length; default `1rem`). The service
-origin defaults to the estate's AI service (`SERVICES.ai` in the site
+origin defaults to the platform's AI service (`SERVICES.ai` in the site
 constants leaf) — override `apiBase` for staging.
 
 The contract (the honest postures the component keeps):
@@ -84,7 +84,7 @@ The contract (the honest postures the component keeps):
   (localStorage), never synced. Sign-in rides the service's bubble
   bridge (`/auth/login?mode=bubble&origin=…` on the AI service — the
   OIDC round-trip, then a confirm page hands the service's session token
-  to this origin by postMessage; the estate bans shared cookies, so the
+  to this origin by postMessage; the platform bans shared cookies, so the
   token rides as `Authorization: Bearer`, held in sessionStorage).
   Signed-in members get their synced conversation list — the same
   sessions ai.oimlsmart.org shows.

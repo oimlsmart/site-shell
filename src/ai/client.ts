@@ -7,7 +7,7 @@
  * sign-in (/auth/login?mode=bubble&origin=… → confirm → postMessage).
  *
  * Auth: the service session rides as `Authorization: Bearer <token>` —
- * the SameSite=Lax cookie never crosses origins and the estate bans
+ * the SameSite=Lax cookie never crosses origins and the platform bans
  * shared-domain cookies (the identity guide's SSO doctrine). Anonymous
  * callers send no token and get the public/anonymous tier.
  *

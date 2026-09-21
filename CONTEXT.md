@@ -47,7 +47,7 @@ these are the domain names.
   chrome-export fixture page and `scripts/export-chrome.mjs`.
 - **Tier** — the SMART vs SMART+ scope split. `TierToggle` swaps
   `data-tier="smart"` / `data-tier="smartplus"` blocks on a page.
-- **AI bubble** — `AiBubble` (TODO.ai-platform/01), the estate assistant
+- **AI bubble** — `AiBubble` (TODO.ai-platform/01), the platform assistant
   embedded from the ONE component: the header icon row at lg+, a
   floating button below lg (or always, in `standalone` mode for
   properties with their own chrome). Opt-in per property via
