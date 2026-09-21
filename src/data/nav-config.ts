@@ -62,7 +62,7 @@ export const NAV_DROPDOWNS: readonly NavDropdownConfig[] = [
       { label: 'Developer Docs', href: '/docs/', desc: 'Guides, architecture, specifications' },
       { label: 'The OIML SMART Program', href: '/programs/oiml-smart', desc: 'The program overview' },
       { label: 'Component Architecture', href: '/architecture', desc: 'The repos, the SSOT flow, the gates' },
-      { label: 'The Docs Federation', href: 'https://primmel.github.io/primmel-smart-docs/', desc: 'The platform volumes — foundation to classroom', external: true },
+      { label: 'The Docs Federation', href: 'https://www.primmel.org/primmel-smart-docs/', desc: 'The platform volumes — foundation to classroom', external: true },
     ],
   },
   {

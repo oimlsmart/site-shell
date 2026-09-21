@@ -28,7 +28,7 @@
  *  derivations never ride the draft (the real form derives them on
  *  open). */
 export interface AiDraftFields {
-  /** the Recommendation, as the estate URN (urn:oiml:pub:r:60:2021) */
+  /** the Recommendation, as the publication URN (urn:oiml:pub:r:60:2021) */
   standard_doc: string
   standard_label?: string
   family_designation?: string
