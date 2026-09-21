@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
-import { NAV_ITEMS } from '../data/nav-config'
-import { resolveBrand } from '../data/site-meta'
+import { resolveNavHref, type NavItem, type NavProductCta } from '../config/nav'
 import { useTheme } from '../composables/useTheme'
 
-// The overlay's logo rides the SAME resolved brand the desktop header
-// passes down (SiteHeader threads its brand props): absolute URLs with
-// the oimlsmart.org defaults — a relative /smart-logo-*.svg would 404 on
-// any other host (2026-08-24: the hamburger overlay's logo was missing
-// on the identity service for exactly that), and the light/dark display
-// rules live in THIS component's own styles (the header's scoped rules
-// never reach a Vue island).
+// The mobile overlay renders the injected nav items and brand — no
+// package-side defaults exist. The overlay's logo rides the SAME brand
+// the desktop header passes down (SiteHeader threads its brand props):
+// absolute URLs — a relative logo path would 404 on any other host
+// (2026-08-24: the hamburger overlay's logo was missing on the identity
+// service for exactly that), and the light/dark display rules live in
+// THIS component's own styles (the header's scoped rules never reach a
+// Vue island).
 interface Props {
+  /** The injected nav items, in the site's order. */
+  items?: readonly NavItem[]
+  /** The injected product CTA, rendered above the bottom row. */
+  productCta?: NavProductCta
+  /** The origin relative hrefs resolve against (the nav model's). */
+  origin?: string
   brandName?: string
   logoLight?: string
   logoDark?: string
@@ -29,8 +35,6 @@ const props = withDefaults(defineProps<Props>(), {
   // caught it, TODO.ai-platform/01's mount drill).
   showSignIn: true,
 })
-const { brandName, logoLight, logoDark, homeHref, signInHref } = resolveBrand(props)
-const showSignIn = props.showSignIn
 
 const isOpen = ref(false)
 const expandedSection = ref<string | null>(null)
@@ -71,14 +75,14 @@ function toggleSection(id: string) {
       <div v-if="isOpen" role="dialog" aria-modal="true" aria-label="Menu" @keydown.escape="toggleMenu" class="fixed inset-0 z-[300] bg-paper flex flex-col lg:hidden">
       <!-- Panel header with logo + close -->
       <div class="flex items-center justify-between h-14 px-6 border-b border-rule shrink-0">
-        <a :href="homeHref" class="flex items-center gap-2 no-underline text-ink" @click="toggleMenu">
-          <img :src="logoLight" alt="" class="logo-light h-7 w-auto shrink-0" />
-          <img :src="logoDark" alt="" class="logo-dark h-7 w-auto shrink-0" />
-          <span class="font-serif text-base font-semibold tracking-tight">{{ brandName }}</span>
+        <a v-if="homeHref" :href="homeHref" class="flex items-center gap-2 no-underline text-ink" @click="toggleMenu">
+          <img v-if="logoLight" :src="logoLight" alt="" class="logo-light h-7 w-auto shrink-0" />
+          <img v-if="logoDark" :src="logoDark" alt="" class="logo-dark h-7 w-auto shrink-0" />
+          <span v-if="brandName" class="font-serif text-base font-semibold tracking-tight">{{ brandName }}</span>
         </a>
         <button
           ref="closeButton"
-          class="flex items-center justify-center w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent touch-manipulation"
+          class="flex items-center justify-center w-11 h-11 rounded-lg border border-rule cursor-pointer shrink-0 transition-colors hover:border-accent bg-transparent touch-manipulation ml-auto"
           @click="toggleMenu"
           aria-label="Close menu"
         >
@@ -88,9 +92,9 @@ function toggleSection(id: string) {
         </button>
       </div>
 
-      <!-- Nav items in NAV_ITEMS order -->
+      <!-- Nav items in the injected order -->
       <div class="flex-1 overflow-y-auto overscroll-contain px-6 py-4 flex flex-col gap-1">
-        <template v-for="(item, i) in NAV_ITEMS" :key="i">
+        <template v-for="(item, i) in items" :key="i">
           <!-- Dropdown section -->
           <div v-if="item.type === 'dropdown'">
             <button
@@ -108,10 +112,11 @@ function toggleSection(id: string) {
                 <div v-if="item.config.sectionHeader" class="px-3 py-2 text-[0.625rem] font-mono uppercase tracking-wider text-amber-deep">
                   {{ item.config.sectionHeader }}
                 </div>
+                <!-- Labels only: the overlay never renders a link's desc -->
                 <a
                   v-for="link in item.config.links"
                   :key="link.href"
-                  :href="link.href"
+                  :href="resolveNavHref(link.href, link.external, origin)"
                   class="py-2.5 px-6 text-sm text-ink-soft hover:text-accent transition-colors rounded flex items-center gap-1.5"
                 >
                   {{ link.label }}
@@ -126,10 +131,17 @@ function toggleSection(id: string) {
           <!-- Standalone link -->
           <a
             v-else
-            :href="item.href"
+            :href="resolveNavHref(item.href, undefined, origin)"
             class="py-3 px-3 text-sm font-medium text-ink-soft hover:text-accent transition-colors rounded"
           >{{ item.label }}</a>
         </template>
+
+        <!-- The injected product CTA -->
+        <a
+          v-if="productCta"
+          :href="resolveNavHref(productCta.href, productCta.external, origin)"
+          class="mt-3 text-center text-sm font-semibold text-paper bg-accent rounded px-3 py-2.5 no-underline"
+        >{{ productCta.label }}</a>
 
         <!-- Bottom: theme toggle icon + sign in -->
         <div class="mt-auto pt-4 border-t border-rule flex items-center justify-between">
@@ -141,7 +153,7 @@ function toggleSection(id: string) {
             <span v-if="!isDark">☀</span>
             <span v-else>☾</span>
           </button>
-          <a v-if="showSignIn" :href="signInHref" class="shell-signin text-sm font-semibold text-accent">Sign in ↗</a>
+          <a v-if="showSignIn && signInHref" :href="signInHref" class="shell-signin text-sm font-semibold text-accent">Sign in ↗</a>
         </div>
       </div>
     </div>

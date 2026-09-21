@@ -1,10 +1,14 @@
 # @oimlsmart/site-shell
 
-The OIML SMART house shell — the one SSOT for the chrome of every OIML
-SMART site: the federation header, the component-local minisite nav, the
-logo hero, the docs layout, the footer, and the design tokens. Astro
-sites mount the components; sites that cannot mount Astro inject the
-exported chrome artifact. Domain vocabulary lives in `CONTEXT.md`.
+The OIML SMART house shell — the chrome machinery every OIML SMART site
+mounts: the federation header and footer frames, nav rendering, the
+component-local minisite nav, the logo hero, the docs layout, the theme
+runtime, the design tokens, and the AI assistant island. The package
+ships machinery only: it carries no site content of its own. Every site
+injects its nav model, brand, services registry, and footer content
+through the typed config contract in `src/config/`, and the shell
+renders exactly what it is given — with no config it renders no chrome
+at all. Domain vocabulary lives in `CONTEXT.md`.
 
 ## Consume (an Astro site)
 
@@ -26,28 +30,127 @@ The package ships raw source — peer dependencies are `astro >= 5` and
 Optional: `@import "@oimlsmart/site-shell/blueprint.css"` for the
 editorial page scaffolding (grid, prose, hero polish).
 
+Declare the site's config once (the shapes come from the package):
+
+```ts
+// src/site-config.ts
+import type { BrandConfig, NavModel, FooterConfig, ServicesRegistry } from '@oimlsmart/site-shell/config'
+
+export const BRAND: BrandConfig = {
+  brandName: '…',
+  logoLight: '…',
+  logoDark: '…',
+  homeHref: '…',
+  // No signInHref means the site has no sign-in: no sign-in link
+  // renders anywhere.
+  signInHref: '/login/',
+}
+
+export const NAV: NavModel = {
+  // Relative hrefs resolve against this origin at render, so the
+  // chrome's links work from any host (ADR-0003).
+  origin: 'https://…',
+  items: [
+    { type: 'dropdown', config: { id: 'docs', label: 'Docs', variant: 'default', links: [{ label: 'Guides', href: '/docs/' }] } },
+    { type: 'link', label: 'News', href: '/news/', matchPrefix: '/news' },
+  ],
+  // Optional: the one emphasized link at the nav's end.
+  productCta: { label: 'Open the app', href: '/app' },
+}
+
+export const SERVICES: ServicesRegistry = { ai: 'https://…', status: 'https://…' }
+
+export const FOOTER: FooterConfig = {
+  origin: 'https://…',
+  description: '…',
+  columns: [{ heading: 'Programme', links: [{ label: 'About', href: '/about' }] }],
+  hosts: [{ label: 'Public site', href: 'https://…' }],
+  attribution: ['A programme of the ', { label: 'OIML', href: 'https://www.oiml.org', external: true }],
+  legal: [{ label: 'Privacy', href: '/privacy' }],
+  copyright: '…',
+}
+```
+
+Mount the shell:
+
 ```astro
 ---
 import { Base, MinisiteNav, PageHero } from '@oimlsmart/site-shell'
+import { BRAND, NAV, SERVICES, FOOTER } from '../site-config'
 import '../styles/app.css'
 ---
 
-<Base title="…" description="…" signInHref="/auth/login">
+<Base title="…" description="…" brand={BRAND} nav={NAV} services={SERVICES} footer={FOOTER}>
   <MinisiteNav sections={[{ label: 'About', href: '/' }, …]} base="/recs" />
-  <PageHero title="…" lede="…" logo={{ name: 'smart-rec', alt: '…' }} />
+  <PageHero title="…" lede="…" logo={{ name: 'smart-rec', alt: '…', base: 'https://www.oimlsmart.org/img/components' }} />
   <slot />  <!-- your page -->
 </Base>
 ```
+
+### The injection contract
+
+`Base` renders no header when neither `brand` nor `nav` is passed, and
+no footer when `footer` is absent; `SiteHeader` and `SiteFooter` omit
+any block whose content was not injected. The package defines the
+shapes and the render machinery — never the data:
+
+- **`NavModel`** (`nav`) — the ordered items (dropdowns and standalone
+  links), the optional product CTA, and the origin that relative hrefs
+  resolve against. The header menu, the mobile overlay, and the
+  footer's Explore column all render from it; the active-path
+  predicates (`isLinkActive`, `isDropdownActive`) ship with the type.
+- **`BrandConfig`** (`brand`) — product name, logo pair, home href, an
+  optional sign-in href, an optional theme-color. An absent
+  `signInHref` renders no sign-in link in the header or the mobile
+  overlay; there is no default target.
+- **`ServicesRegistry`** (`services`) — the service origins the
+  consumer defines. The AI assistant reads `services.ai` when its flag
+  carries no explicit `apiBase`; enabling the assistant without any
+  origin is a build error, never a silent default.
+- **`FooterConfig`** (`footer`) — description, link columns, the hosts
+  column, the attribution segments, legal links, and the copyright
+  line. The Explore column is derived from the nav model; everything
+  else is injected.
+
+### Menus are labels only
+
+The header dropdowns and the mobile overlay render each link's label,
+its badge, and its external indicator — never the link's `desc`. The
+type keeps `desc` for surfaces the consumer owns (index cards, listing
+pages), but `SiteHeader` strips it before any island receives the
+model, so a description cannot reach the menus even through serialized
+props. The render gate proves the built dropdowns carry none.
 
 ### What the package exports
 
 | subpath | contents |
 |---|---|
-| `.` (root) | `Base`, `SiteHeader`, `SiteFooter`, `MinisiteNav`, `PageHero`, `DocsSidebar`, `InternalBanner`, `TierToggle`, `ComponentLogo`, `AiBubble`, the theme runtime (`useTheme`, `THEME_BOOTSTRAP`, …), the brand resolver (`resolveBrand`, `SITE`) |
-| `./components/*` | every component directly, for the subpaths the root entry doesn't name |
-| `./ai/*` | the assistant's API client + markdown-lite renderer + the page-context contract (AiBubble's machinery) |
+| `.` and `./chrome/astro` | the Astro component barrel (`Base`, `SiteHeader`, `SiteFooter`, `MinisiteNav`, `PageHero`, `DocsSidebar`, `InternalBanner`, `TierToggle`, `ComponentLogo`, `AiBubble`), the theme runtime, and the config contract — for Astro consumers |
+| `./chrome/astro/*` | each component directly (`…/chrome/astro/SiteHeader.astro`) |
+| `./config` | the injected-config contract: `NavModel`, `BrandConfig`, `ServicesRegistry`, `FooterConfig`, and the nav predicates |
+| `./brand` | `BrandConfig` alone, for consumers that want the identity type without the rest |
+| `./theme` | the theme runtime (`useTheme`, `THEME_BOOTSTRAP`, `THEME_STORAGE_KEY`, …) |
+| `./ai`, `./ai/context`, `./ai/drafts`, `./ai/client`, `./ai/markdown`, `./ai/*` | the assistant's API client, the page-context seam, the draft-act seam, the markdown-lite renderer |
 | `./tokens.css` / `./blueprint.css` | the design tokens / the editorial scaffolding |
-| `./data/*` | the component registry, the nav config, site metadata — importable so federation sites re-export the ONE registry instead of carrying drift-prone copies |
+| `./data/theme.mjs`, `./data/chrome.mjs` | the node-safe constant leaves (the render gate and the chrome-export markers) |
+
+The subpath map is stack-honest: a consumer imports only what its
+stack compiles. A Vue-only consumer never touches the `.astro` barrel;
+a plain-node script imports the `.mjs` leaves. The package root
+resolves to the Astro barrel for ergonomic imports — consumers that
+care about their compile surface use the explicit subpaths.
+
+### The reference preset (`presets/www/`, not shipped)
+
+The www property's content — its nav model, brand, services, footer
+copy, component registry, and host list — lives in the repository at
+`presets/www/` as plain `.mjs` data with `.d.mts` type twins. The
+directory is NOT package content: nothing in it is exported from the
+package entry points, and `files` (`src`, `scripts`) keeps it out of
+the published tarball — the pack gate fails if a `presets/` path ever
+appears. It exists so the www repo can adopt the files verbatim in its
+own migration, and so this repo's test fixture can inject them and
+prove the injection surface end to end.
 
 ### The AI assistant bubble (opt-in)
 
@@ -55,8 +158,8 @@ The platform's AI assistant (ai.oimlsmart.org) embeds as ONE component —
 never a per-app copy. Off by default; a property opts in per page shell:
 
 ```astro
-<Base title="…" aiAssistant />                                 <!-- the public service -->
-<Base title="…" aiAssistant={{ apiBase: 'https://…' }} />     <!-- staging override -->
+<Base title="…" services={SERVICES} aiAssistant />                      <!-- services.ai -->
+<Base title="…" aiAssistant={{ apiBase: 'https://…' }} />               <!-- staging override -->
 ```
 
 The launcher lands in the header's icon row at lg+ and as a floating
@@ -68,14 +171,14 @@ mount the component directly in standalone mode:
 ---
 import { AiBubble } from '@oimlsmart/site-shell'
 ---
-<AiBubble client:load mode="standalone" />
+<AiBubble client:load mode="standalone" apiBase="https://…" />
 ```
 
-The floating launcher shows at every breakpoint in standalone mode. A
-host with its own bottom-right affordance lifts the launcher clear of
-it: `fabBottom="5rem"` (any CSS length; default `1rem`). The service
-origin defaults to the platform's AI service (`SERVICES.ai` in the site
-constants leaf) — override `apiBase` for staging.
+The `apiBase` prop is required on a direct mount — the package ships no
+service origin to default to. The floating launcher shows at every
+breakpoint in standalone mode. A host with its own bottom-right
+affordance lifts the launcher clear of it: `fabBottom="5rem"` (any CSS
+length; default `1rem`).
 
 The contract (the honest postures the component keeps):
 
@@ -84,8 +187,8 @@ The contract (the honest postures the component keeps):
   (localStorage), never synced. Sign-in rides the service's bubble
   bridge (`/auth/login?mode=bubble&origin=…` on the AI service — the
   OIDC round-trip, then a confirm page hands the service's session token
-  to this origin by postMessage; the platform bans shared cookies, so the
-  token rides as `Authorization: Bearer`, held in sessionStorage).
+  to this origin by postMessage; the platform bans shared cookies, so
+  the token rides as `Authorization: Bearer`, held in sessionStorage).
   Signed-in members get their synced conversation list — the same
   sessions ai.oimlsmart.org shows.
 - **Answers** stream from `POST /api/ask` (SSE citations → tokens →
@@ -190,25 +293,17 @@ is `src/ai/drafts.ts` (`@oimlsmart/site-shell/ai/drafts`, an explicit
   validation, its gates, its audit, which marks the act AI-prepared) is
   the only commit.
 
-### Brand overrides
+### Identity and slots
 
-Brand identity resolves in exactly one place. Pass any of
-`brandName`, `logoLight`, `logoDark`, `homeHref`, `signInHref` to
-`Base` and it threads through the header, the mobile overlay, and the
-footer together — never re-specify defaults per component:
-
-```astro
-<Base title="Certificates" description="…" brandName="OIML CS" signInHref="/auth/login" />
-```
-
-### Slots
-
-`Base` exposes `head` (extra `<head>` tags) and `signin` (replace the
-header's default sign-in link — e.g. an account-chip island with the
-logged-in user's profile photo). The signin slot renders **beside** the
-nav, never inside it, so the chip stays visible at every breakpoint;
-keep chips compact and mark them `shrink-0`. When real slot content is
-mounted, the mobile overlay drops its own "Sign in" link.
+The brand renders exactly what the consumer injected, in one place:
+pass the same `brand` object to every `Base` mount and the header, the
+mobile overlay, and the footer render one identity. A consumer may
+replace the header's default sign-in link with an account chip in
+`Base`'s `signin` slot; the chip renders **beside** the nav, never
+inside it, so it stays visible at every breakpoint — keep chips compact
+and mark them `shrink-0`. When a chip is mounted, the mobile overlay
+drops its own "Sign in" link. When the brand declares no `signInHref`,
+no sign-in link renders at all.
 `MinisiteNav` exposes a right-aligned slot for nav-local utilities.
 
 ### Tiered pages (SMART / SMART+)
@@ -225,7 +320,7 @@ If your page needs the current scheme, use the theme runtime — never
 read `localStorage` or `.dark` yourself:
 
 ```ts
-import { useTheme, isDarkPreferred } from '@oimlsmart/site-shell'
+import { useTheme, isDarkPreferred } from '@oimlsmart/site-shell/theme'
 ```
 
 ## Consume (a foreign-built site)
@@ -238,7 +333,9 @@ node scripts/export-chrome.mjs   # fixture dist → dist-chrome/ (header.html, f
 node scripts/apply-chrome.mjs --dist <your-dist> [--base /your-base] [--skip <prefix>]
 ```
 
-The scripts ship in the npm tarball (`files: src, scripts`), so an
+The exported chrome is the FIXTURE's — today the fixture injects the
+www preset, so the artifact carries the www header and footer. The
+scripts ship in the npm tarball (`files: src, scripts`), so an
 installed consumer runs them from
 `node_modules/@oimlsmart/site-shell/scripts/`. `apply-chrome.mjs`
 rewrites the asset URLs to your base and injects the fragments into
@@ -281,14 +378,38 @@ do support `:global()`; the ban is Vue-only.)
 
 ## Rules
 
-- Logos are NOT shipped: consumers reference the canonical URLs under
-  `https://www.oimlsmart.org/img/components/` (the sync-branding guard
-  covers drift). `resolveBrand`/`COMPONENT_ASSET_BASE` are the only
-  homes for those URLs.
+- The package ships machinery only. A nav model, component registry,
+  brand literal, service origin, or default sign-in href belongs to the
+  consumer (or to `presets/<site>/` in this repository) — never to
+  `src/`. The pack gate enforces this on every run.
+- Logos are NOT shipped: consumers reference their canonical URLs (www's
+  component-logo copy lives under
+  `https://www.oimlsmart.org/img/components/`, injected as
+  `ComponentLogo`'s `base`). The `base` prop has no default.
 - Colors and type live ONLY in `src/styles/tokens.css` (+ blueprint.css).
   A token change ships as one package release consumed by every site.
 - The internal-draft banner is opt-in (`<Base internal>`) — minisites are
-  public.
+  public. Its programme link is injected too (relative hrefs resolve
+  against the nav model's origin).
+
+## The completeness gate (check-nav)
+
+`scripts/check-nav.mjs` is the nav completeness check a consumer runs
+in CI against its own nav model:
+
+```sh
+node scripts/check-nav.mjs src/site-config.nav.json --dist dist
+node scripts/check-nav.mjs src/site-config.ts --routes routes.txt --offline
+```
+
+The model is the package's `NavModel` (JSON, `.mjs`, or a `.ts` module
+through node's type stripping). Internal hrefs must be served by the
+`--dist` tree or appear in the `--routes` list; external hrefs are
+fetched (any non-2xx fails) unless `--offline` skips the network. A
+served page fails when it is a redirect stub (under the byte threshold
+carrying meta-refresh) or a placeholder (a coming-soon marker, or a
+main element under the word threshold). The tool is dependency-free
+(node stdlib) and exits non-zero with every failing entry named.
 
 ## The gate
 
@@ -296,20 +417,31 @@ do support `:global()`; the ban is Vue-only.)
 `test/fixture/`) are the package's proof, and exactly what CI and the
 release workflow run — one definition, no drift:
 
-- **gate** — the chrome compiled into the built fixture (header, brand,
-  tokens, threaded props), the showcase components mounted, the a11y
-  legs (skip link, labelled landmarks), the theme guard clean (no bare
-  `.dark{display:none}` rules anywhere, no `:global(` in Vue scoped
-  styles), and the chrome-export pipeline proven: export → apply to a
-  foreign page → asset rewrite → idempotence.
-- **gate:render** — Playwright loads each fixture page in **both** color
-  schemes and asserts layout geometry (not computed colors — a blank
-  page still greps clean and passes color probes), the mobile dialog's
-  open/Esc behavior, plus screenshots as artifacts.
+- **gate** — the fixture injects the reference preset and the chrome
+  compiles in (header, brand, nav links, footer columns, threaded
+  sign-in override); the config-less page proves the inverse (no
+  header, no footer, no sign-in link — the shell invents nothing); the
+  built dropdowns carry labels only (no `desc` reaches any page, not
+  even serialized props); the showcase components mount; the a11y legs
+  hold (skip link, labelled landmarks); the theme guard is clean; the
+  chrome-export pipeline is proven (export → apply to a foreign page →
+  asset rewrite → idempotence); `npm pack --dry-run` carries no preset
+  and no content module; and `check-nav` passes a good model against
+  the fixture dist while failing a bad one by name (missing route,
+  coming-soon placeholder, meta-refresh redirect stub, and the
+  routes-list mode).
+- **gate:render** — Playwright loads each fixture page in **both**
+  color schemes and asserts layout geometry (not computed colors — a
+  blank page still greps clean and passes color probes); the chrome
+  pages carry the header and the swapping logo pair, the config-less
+  pages carry none; a rendered dropdown is opened and proven to contain
+  labels only; the mobile dialog opens and Esc-closes; the AI bubble
+  answers against a stubbed service; screenshots land in `artifacts/`.
 
 Federation links (header nav, footer columns, the internal banner)
-render front-door absolute via `frontDoor()` — the chrome's links
-resolve from any minisite origin (ADR-0003).
+render front-door absolute — relative hrefs resolve against the nav
+model's / footer config's origin at render, so the chrome's links
+resolve from any minisite origin (ADR-0003, as amended by ADR-0005).
 
 ## Releases — trusted publishing only
 
@@ -319,7 +451,7 @@ locally. A release is:
 
 1. changes land on `main` via PR (the gate runs on every PR);
 2. the version bump PR merges (`package.json` version = the release);
-3. someone pushes the matching tag — `git tag v0.1.3 && git push origin v0.1.3`;
+3. someone pushes the matching tag — `git tag v0.2.1 && git push origin v0.2.1`;
 4. `release.yml` verifies tag ↔ version, runs the same gate, then
    publishes with a provenance attestation bound to this repo;
 5. verify: `npm view @oimlsmart/site-shell version`.

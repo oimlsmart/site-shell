@@ -1,7 +1,7 @@
 # ADR 0002: the footer's programme links stay literal, not derived from NAV_DROPDOWNS
 
 Date: 2026-08-28
-Status: accepted
+Status: accepted; the literal wording amended by ADR-0005 — the column is now an injected `FooterColumn`, still curated independently of the nav tree
 
 ## Context
 

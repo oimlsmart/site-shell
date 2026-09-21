@@ -1,10 +1,10 @@
 /**
  * The canonical host registry — the ONE machine-readable list of the
- * public OIML SMART properties. Every property's footer renders "The
- * sites" from this registry, so the cross-property links cannot drift
- * between hand-typed literals (the 2026-09-21 content audit found they
- * had). Node-safe like ./site.mjs: the gate runs under plain node and
- * imports the same values the footer renders.
+ * public OIML SMART properties. Moved out of the package in 0.2.0 (it
+ * was src/data/host-registry.mjs; the footer's "The sites" column is
+ * site content, so the consumer injects it via FooterConfig.hosts).
+ * Node-safe like ./site.mjs: the gate imports the same values the
+ * footer renders.
  */
 export const HOST_REGISTRY = [
   {
