@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { runThemeGuard } from './guard.mjs'
 import { LEGAL, SERVICES, SITE } from '../src/data/site.mjs'
+import { HOST_REGISTRY } from '../src/data/host-registry.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const DIST = join(ROOT, 'test/fixture/dist')
@@ -48,6 +49,9 @@ check(indexHtml.includes(`href="${LEGAL.terms}"`), 'the footer Terms legal link 
 check(indexHtml.includes(`href="${SITE.url}/recs"`), 'federation nav links are front-door absolute (resolve from any origin)')
 check(indexHtml.includes(`href="${SITE.url}/pilot"`), 'the footer programme links are front-door absolute')
 check(indexHtml.includes(`href="${SERVICES.status}"`), 'the footer Service status link compiled into the page (from the site constants leaf)')
+for (const host of HOST_REGISTRY) {
+  check(indexHtml.includes(`href="${host.url}"`), `the footer carries the registry link for ${host.key} (host-registry.mjs)`)
+}
 check(showcaseHtml.includes(`href="${SITE.url}/pilot"`), 'the internal banner link is front-door absolute')
 check(/MobileNav\.[A-Za-z0-9_-]+\.js/.test(indexHtml) && indexHtml.includes('https://www.oimlsmart.org/smart-logo-light.svg'), 'the mobile nav island rides the absolute brand logo URLs (serialized props)')
 check(!/src:"\/smart-logo/.test(mobileNav), 'the mobile nav carries no relative logo paths (the 2026-08-24 regression)')
