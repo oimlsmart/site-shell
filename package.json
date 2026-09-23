@@ -1,6 +1,6 @@
 {
   "name": "@oimlsmart/site-shell",
-  "version": "0.2.0",
+  "version": "0.1.5",
   "description": "The OIML SMART house shell — the chrome machinery every OIML SMART site mounts (federation header and footer frames, nav rendering, minisite nav, hero, docs layout, theme runtime, design tokens, the AI assistant island). The package ships machinery only: every site injects its own nav model, brand, services, and footer content.",
   "repository": {
     "type": "git",
