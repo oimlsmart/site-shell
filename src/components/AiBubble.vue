@@ -183,7 +183,8 @@ const pendingDraftAct = ref<AnyAiDraft | undefined>(undefined)
  *  checks the standing grant ('checking'), an active grant executes
  *  inline ('executed' via grant), otherwise the card waits on the
  *  user's tap ('confirm'). */
-const draftHandoff = ref<Record<string, 'sending' | 'opened' | 'refused' | 'checking' | 'confirm' | 'executed'>>({})
+type DraftHandoffState = 'sending' | 'opened' | 'refused' | 'checking' | 'confirm' | 'executed'
+const draftHandoff = ref<Record<string, DraftHandoffState>>({})
 /** per-message execution detail: the authority that signed (the grant
  *  or the user's tap) and the HOST-declared act class — the card's
  *  marker reads these, never the service's say-so */
@@ -209,8 +210,10 @@ async function openDraftInForm(messageId: string, draft: AiDraft) {
   }
 }
 
-/** The card's honest footer per state (the refusal names the way out). */
-function draftHandoffNote(state?: 'sending' | 'opened' | 'refused'): string {
+/** The card's honest footer per state (the refusal names the way out).
+ *  The message-draft card only ever holds sending/opened/refused; the
+ *  api_call arc's own states render their marker through apiCallNote. */
+function draftHandoffNote(state?: DraftHandoffState): string {
   if (state === 'sending') return 'Handing the draft to the form…'
   if (state === 'opened') return 'Opened in the form — review every field; only your own confirmation submits.'
   if (state === 'refused') return 'This page could not open the draft — open the platform’s application wizard and ask again from there.'
