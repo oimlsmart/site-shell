@@ -1,9 +1,8 @@
 /**
- * The site constants leaf — node-importable (the gate runs under plain
- * node and cannot load .ts), the same pattern as theme.mjs. site-meta.ts
- * re-exports SITE for bundler consumers; the footer and the gate both
- * consume from here, so the page and its proof cannot diverge on the
- * spelling of a site URL.
+ * The www site constants — moved out of the package in 0.2.0 (they were
+ * src/data/site.mjs, a brand-literal leaf the package baked in; the
+ * package now ships machinery only). Node-importable so the gate and
+ * check-nav run under plain node.
  */
 export const SITE = {
   url: 'https://www.oimlsmart.org',
@@ -28,10 +27,13 @@ export const PARTNERS = {
   github: 'https://github.com/oimlsmart',
 }
 
-/** The estate's service surfaces referenced by the chrome. The status
- *  service and the AI service live on their own origins, so the links
- *  are literal here, never front-door derived. */
+/** The service surfaces the chrome reads. The status service and the AI
+ *  service live on their own origins, so the links are literal here,
+ *  never front-door derived. */
 export const SERVICES = {
   status: 'https://status.oimlsmart.org',
   ai: 'https://ai.oimlsmart.org',
 }
+
+/** The canonical component-logo asset base (override only for staging). */
+export const COMPONENT_ASSET_BASE = `${SITE.url}/img/components`

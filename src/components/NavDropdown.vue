@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * NavDropdown — generic navigation dropdown driven by NavDropdownConfig.
- *
- * Replaces the duplicated AboutDropdown / InternalToolsDropdown pattern.
- * Adding a new dropdown = adding a config entry, not creating a component.
+ * NavDropdown — the generic navigation dropdown, driven entirely by the
+ * injected NavDropdownConfig. It renders LABELS ONLY: the NavLink type
+ * keeps `desc` for surfaces the consumer owns, but this menu never
+ * prints it — menus are terse by contract.
  *
  * Variants:
  *   - default: standard nav styling
@@ -11,12 +11,13 @@
  */
 import { computed } from 'vue'
 import { useClickOutside } from '../composables/useClickOutside'
-import { isDropdownActive, isLinkActive, type NavDropdownConfig, type NavLink } from '../data/nav-config'
-import { frontDoor } from '../data/site-meta'
+import { isDropdownActive, resolveNavHref, type NavDropdownConfig } from '../config/nav'
 
 const props = defineProps<{
   config: NavDropdownConfig
   currentPath: string
+  /** The origin relative hrefs resolve against (the nav model's). */
+  origin?: string
 }>()
 
 const { root, isOpen, toggle, close } = useClickOutside()
@@ -29,7 +30,7 @@ const isActive = computed(() => isDropdownActive(props.config, props.currentPath
 // "leaves this site" destinations from internal routes.
 type DropdownItem =
   | { kind: 'divider'; label: string }
-  | { kind: 'link'; link: NavLink }
+  | { kind: 'link'; href: string; label: string; badge?: string; external?: boolean }
 
 const items = computed<DropdownItem[]>(() => {
   const out: DropdownItem[] = []
@@ -40,7 +41,13 @@ const items = computed<DropdownItem[]>(() => {
     if (link.external && (!prev || !prev.external)) {
       out.push({ kind: 'divider', label: 'External sites' })
     }
-    out.push({ kind: 'link', link })
+    out.push({
+      kind: 'link',
+      href: resolveNavHref(link.href, link.external, props.origin),
+      label: link.label,
+      badge: link.badge,
+      external: link.external,
+    })
   }
   return out
 })
@@ -54,10 +61,6 @@ function onEnter() {
 
 function onLeave() {
   closeTimer = setTimeout(() => { isOpen.value = false }, 150)
-}
-
-function activeClass(href: string): string {
-  return isLinkActive(href, props.currentPath) ? 'text-accent font-semibold' : ''
 }
 </script>
 
@@ -96,32 +99,18 @@ function activeClass(href: string): string {
           <span class="font-mono text-[0.5625rem] uppercase tracking-[0.12em] text-ink-muted">{{ item.label }}</span>
           <span class="font-mono text-[0.5rem] text-ink-muted/60">· leaves this site</span>
         </div>
-        <!-- Link -->
+        <!-- Link: the label only — the dropdown never renders a link's desc -->
         <a
           v-else
-          :href="item.link.external ? item.link.href : frontDoor(item.link.href)"
-          class="rounded no-underline transition-colors"
-          :class="item.link.desc
-            ? 'flex items-start gap-2 px-3 py-2 text-sm text-ink-soft hover:bg-paper-raised hover:text-accent'
-            : 'block px-3 py-2 text-sm text-ink-soft hover:bg-paper-raised hover:text-accent'"
+          :href="item.href"
+          class="flex items-center gap-2 px-3 py-2 text-sm text-ink-soft hover:bg-paper-raised hover:text-accent rounded no-underline transition-colors"
         >
-          <div v-if="item.link.desc" class="flex flex-col gap-0.5 flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <span>{{ item.link.label }}</span>
-              <span
-                v-if="item.link.badge === 'internal'"
-                class="shrink-0 inline-flex items-center text-[0.5625rem] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-amber-warm/10 text-amber-deep border border-amber-warm/20"
-              >internal</span>
-              <svg v-if="item.link.external" class="shrink-0 w-3 h-3 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-            </div>
-            <span class="text-xs text-ink-muted">{{ item.link.desc }}</span>
-          </div>
-          <template v-else>
-            <span class="flex items-center gap-1.5">
-              {{ item.link.label }}
-              <svg v-if="item.link.external" class="shrink-0 w-3 h-3 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-            </span>
-          </template>
+          <span class="whitespace-nowrap">{{ item.label }}</span>
+          <span
+            v-if="item.badge === 'internal'"
+            class="shrink-0 inline-flex items-center text-[0.5625rem] font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-sm bg-amber-warm/10 text-amber-deep border border-amber-warm/20"
+          >internal</span>
+          <svg v-if="item.external" class="shrink-0 w-3 h-3 text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
         </a>
       </template>
     </div>

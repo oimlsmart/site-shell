@@ -63,15 +63,13 @@ import {
 } from '../ai/context'
 import { dispatchAiDraft, draftFieldLines, apiCallLines, type AiDraft, type AiApiCallDraft, type AnyAiDraft } from '../ai/drafts'
 import { renderMarkdownLite } from '../ai/markdown'
-// The typed re-export, never the .mjs source: the strict-TS consumers
-// (the platform's vue-tsc) cannot resolve an untyped .mjs import — the
-// 0.1.11 hardening's direct site.mjs import broke them (the wave-03
-// consumer pass caught it; site-meta.ts re-exports the same SERVICES).
-import { SERVICES } from '../data/site-meta'
+// The AI service origin is injected: the apiBase prop is REQUIRED — the
+// package ships no service origins (SiteHeader resolves it from the
+// consumer's ServicesRegistry when the mount relies on the registry).
 
 interface Props {
-  /** The AI service origin. */
-  apiBase?: string
+  /** The AI service origin — required; the package ships no default. */
+  apiBase: string
   /** chrome = mounted inside SiteHeader's icon row (icon at lg+, FAB
    *  below); standalone = the floating button at every breakpoint. */
   mode?: 'chrome' | 'standalone'
@@ -99,7 +97,6 @@ interface Props {
   draftActs?: boolean
 }
 const props = withDefaults(defineProps<Props>(), {
-  apiBase: SERVICES.ai,
   mode: 'standalone',
   fabBottom: '1rem',
   contextChips: false,

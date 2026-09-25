@@ -13,7 +13,7 @@ const path = Astro.url.pathname
 ---
 
 <nav aria-label="Sections" class="border-b border-rule bg-paper dark:bg-paper-deep">
-  <div class="max-w-7xl mx-auto px-6 flex items-center gap-6 h-11">
+  <div class="max-w-7xl mx-auto px-6 flex items-center gap-6 h-11 overflow-x-auto nav-scroll">
     {sections.map(s => (
       <a
         href={`${base}${s.href}`}
@@ -25,3 +25,8 @@ const path = Astro.url.pathname
     )}
   </div>
 </nav>
+
+<style>
+  .nav-scroll { scrollbar-width: none; }
+  .nav-scroll::-webkit-scrollbar { display: none; }
+</style>

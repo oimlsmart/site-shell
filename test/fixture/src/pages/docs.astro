@@ -5,10 +5,11 @@
  * surface every other export already has.
  */
 import { Base, DocsSidebar } from '@oimlsmart/site-shell'
+import { BRAND, NAV_MODEL, FOOTER, SERVICES } from '../config.mjs'
 import '../styles/app.css'
 ---
 
-<Base title="Docs" description="The shell's docs layout, gated.">
+<Base title="Docs" description="The shell's docs layout, gated." brand={BRAND} nav={NAV_MODEL} services={SERVICES} footer={FOOTER}>
   <div class="max-w-7xl mx-auto px-6 flex gap-10 py-10">
     <aside class="w-56 shrink-0">
       <DocsSidebar />

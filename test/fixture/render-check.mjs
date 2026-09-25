@@ -12,10 +12,23 @@ import { chromium } from 'playwright'
 // The plain-.mjs constants leaf — importing the package root here would
 // pull .astro re-exports that plain node cannot load.
 import { THEME_STORAGE_KEY, THEME_CLASS } from '@oimlsmart/site-shell/data/theme.mjs'
+// The reference preset: the injected nav whose dropdowns must render
+// labels only (never a link's desc), collected here so the assertion
+// and the data cannot drift.
+import { NAV_MODEL } from '../../presets/www/index.mjs'
 
 const PORT = 4173
 const BASE = `http://127.0.0.1:${PORT}`
-const PAGES = ['/', '/showcase', '/docs', '/bubble', '/bubble-standalone']
+// Pages whose Base mount injects brand/nav (the full chrome), and the
+// config-less pages (bare; the standalone bubble) where the shell must
+// render NO header and NO footer at all.
+const CHROME_PAGES = ['/', '/showcase', '/docs', '/bubble']
+const BARE_PAGES = ['/bare', '/bubble-standalone']
+const PAGES = [...CHROME_PAGES, ...BARE_PAGES]
+const NAV_DESCS = (NAV_MODEL.items ?? [])
+  .flatMap(item => item.type === 'dropdown' ? item.config.links : [])
+  .map(link => link.desc)
+  .filter(Boolean)
 
 function waitForPort(port, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
@@ -62,6 +75,7 @@ try {
       await pg.goto(`${BASE}${page}`, { waitUntil: 'load' })
       await pg.waitForTimeout(300) // let the Vue islands hydrate
 
+      const chrome = CHROME_PAGES.includes(page)
       const r = await pg.evaluate(() => {
         const html = document.documentElement
         const header = document.querySelector('header.site-nav')
@@ -72,6 +86,7 @@ try {
           htmlHasDark: html.classList.contains('dark'),
           htmlDisplay: getComputedStyle(html).display,
           bodyHeight: document.body.getBoundingClientRect().height,
+          headerPresent: !!header,
           headerDisplay: header ? getComputedStyle(header).display : null,
           centerInsideBody: !!center && (center === document.body || document.body.contains(center)),
           logoLightDisplay: logoLight ? getComputedStyle(logoLight).display : null,
@@ -85,18 +100,27 @@ try {
       expect(r.htmlDisplay !== 'none', `computed display on <html> is "${r.htmlDisplay}" — the page itself is display:none in this scheme`)
       expect(r.bodyHeight > 400, `body height is ${r.bodyHeight}px — the page has no layout`)
       expect(r.centerInsideBody, 'elementFromPoint at the viewport center missed <body> — the page renders blank')
-      expect(r.headerDisplay !== null, 'the federation header (header.site-nav) is missing from the page')
-      expect(r.headerDisplay !== 'none', 'the federation header is not displayed')
-      expect(r.logoLightDisplay !== null, 'the header light logo (.nav-brand img.logo-light) is missing')
-      expect(r.logoDarkDisplay !== null, 'the header dark logo (.nav-brand img.logo-dark) is missing')
+      // The chrome contract: injected config draws the header; a
+      // config-less mount must render NONE — no machinery invents a
+      // header or footer.
+      if (chrome) {
+        expect(r.headerPresent, 'the federation header (header.site-nav) is missing from the page')
+        expect(r.headerDisplay !== 'none', 'the federation header is not displayed')
+        expect(r.logoLightDisplay !== null, 'the header light logo (.nav-brand img.logo-light) is missing')
+        expect(r.logoDarkDisplay !== null, 'the header dark logo (.nav-brand img.logo-dark) is missing')
+      } else {
+        expect(!r.headerPresent, 'the header rendered on a config-less page (the shell invented chrome)')
+      }
       expect(r.htmlHasDark === isDark, `html.dark is ${r.htmlHasDark ? 'set' : 'not set'} — the scheme did not apply`)
 
-      if (isDark) {
-        expect(r.logoDarkDisplay !== 'none', 'the dark logo is hidden in dark mode — the light/dark swap broke')
-        expect(r.logoLightDisplay === 'none', 'the light logo shows in dark mode')
-      } else {
-        expect(r.logoLightDisplay !== 'none', 'the light logo is hidden in light mode')
-        expect(r.logoDarkDisplay === 'none', 'the dark logo shows in light mode')
+      if (chrome) {
+        if (isDark) {
+          expect(r.logoDarkDisplay !== 'none', 'the dark logo is hidden in dark mode — the light/dark swap broke')
+          expect(r.logoLightDisplay === 'none', 'the light logo shows in dark mode')
+        } else {
+          expect(r.logoLightDisplay !== 'none', 'the light logo is hidden in light mode')
+          expect(r.logoDarkDisplay === 'none', 'the dark logo shows in light mode')
+        }
       }
 
       mkdirSync('artifacts', { recursive: true })
@@ -104,7 +128,7 @@ try {
       await ctx.close()
     }
 
-    if (shots[`${pageName}-light`] && shots[`${pageName}-dark`] && shots[`${pageName}-light`].equals(shots[`${pageName}-dark`]))
+    if (CHROME_PAGES.includes(page) && shots[`${pageName}-light`] && shots[`${pageName}-dark`] && shots[`${pageName}-light`].equals(shots[`${pageName}-dark`]))
       failures.push(`${pageName}: light and dark screenshots are byte-identical — the color scheme is not visually applied`)
   }
 
@@ -123,6 +147,36 @@ try {
       await pg.keyboard.press('Escape')
       await pg.waitForTimeout(500)
       if (await dialog.isVisible().catch(() => false)) failures.push('mobile: Escape did not close the overlay dialog')
+    }
+    await ctx.close()
+  }
+
+  // Menus are terse by contract: open a rendered dropdown and prove it
+  // carries the injected labels and NONE of the nav model's desc
+  // sentences (the defect 0.2.0 cured — descriptions under labels).
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    await ctx.addInitScript(`localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, "light")`)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/`, { waitUntil: 'load' })
+    await pg.waitForTimeout(300)
+    const trigger = pg.getByRole('button', { name: 'SMART', exact: true })
+    if (!(await trigger.isVisible().catch(() => false))) {
+      failures.push('dropdowns: the SMART dropdown trigger is not visible on the desktop header')
+    } else {
+      // The desktop menus are hover-driven; a click would toggle the
+      // hover-opened menu straight back closed.
+      await trigger.hover()
+      const panelBox = pg.locator('div.nav-dropdown').first().locator('div.absolute').first()
+      const opened = await panelBox.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
+      if (!opened) failures.push('dropdowns: the SMART dropdown menu did not open')
+      else {
+        const text = await panelBox.innerText()
+        if (!text.includes('SMART Studio')) failures.push('dropdowns: the menu does not render the injected labels')
+        for (const desc of NAV_DESCS) {
+          if (text.includes(desc)) failures.push(`dropdowns: the menu renders a link description ("${desc}") — menus must be labels only`)
+        }
+      }
     }
     await ctx.close()
   }

@@ -2,18 +2,27 @@
 /**
  * The showcase page — mounts the shell's less-travelled components
  * (internal banner, tier toggle, component logos) so the gate covers
- * them too, not just the header/footer pair. Doubles as living
- * documentation of the tier pattern.
+ * them too, not just the header/footer pair. The component data and
+ * the logo asset base come from the injected preset — the package
+ * ships neither.
  */
 import { Base, TierToggle } from '@oimlsmart/site-shell'
-import ComponentLogo from '@oimlsmart/site-shell/components/ComponentLogo.astro'
-import { COMPONENTS } from '@oimlsmart/site-shell/data/components'
+import ComponentLogo from '@oimlsmart/site-shell/chrome/astro/ComponentLogo.astro'
+import { BRAND, NAV_MODEL, FOOTER, SERVICES, COMPONENTS, COMPONENT_ASSET_BASE } from '../config.mjs'
 import '../styles/app.css'
 
 const logos = COMPONENTS.filter(c => c.logo).slice(0, 4)
 ---
 
-<Base internal title="Showcase" description="The shell's less-travelled components, gated.">
+<Base
+  internal={{ href: '/pilot' }}
+  title="Showcase"
+  description="The shell's less-travelled components, gated."
+  brand={BRAND}
+  nav={NAV_MODEL}
+  services={SERVICES}
+  footer={FOOTER}
+>
   <a
     slot="signin"
     id="account-chip"
@@ -37,7 +46,7 @@ const logos = COMPONENTS.filter(c => c.logo).slice(0, 4)
     </section>
     <section class="flex flex-wrap items-center gap-6">
       {logos.map(c => (
-        <ComponentLogo name={c.logo!} alt={c.alt ?? c.name} width={96} />
+        <ComponentLogo name={c.logo!} alt={c.alt ?? c.name} base={COMPONENT_ASSET_BASE} width={96} />
       ))}
     </section>
   </main>

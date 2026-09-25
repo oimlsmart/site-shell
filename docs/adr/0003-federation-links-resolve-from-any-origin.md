@@ -1,7 +1,7 @@
 # ADR 0003: federation links resolve from any origin
 
 Date: 2026-08-29
-Status: accepted
+Status: accepted; amended by ADR-0005 — the principle stands, the origin is injected config (`NavModel.origin`/`FooterConfig.origin`), not a package constant
 
 ## Context
 
