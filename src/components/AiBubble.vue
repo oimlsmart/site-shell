@@ -268,6 +268,9 @@ function currentAskContext(): AiAskContext | undefined {
       route: window.location.pathname,
       ...(e.doc ? { doc: e.doc } : {}),
       ...(e.edition ? { edition: e.edition } : {}),
+      // TODO.ai-platform/08: the machine affordance rides the entity
+      // declaration — never a chip, never user-facing prose.
+      ...(e.machine ? { machine: e.machine } : {}),
     }
   }
   if (chip.value === 'document' && docPick.value.trim()) {
