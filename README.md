@@ -236,6 +236,12 @@ publishAiContext({
     id: '…',                                 // the platform's entity id
     doc: 'urn:oiml:pub:r:60-1:2021',         // the governing publication, when known
     edition: '2021',
+    machine: {                               // the affordance channel (TODO.ai-platform/08) —
+      state: 'UNDER_REVIEW',                 //   the lifecycle machine's current state
+      acts: [                                //   + the acts offered there for the
+        { action: 'ia_accepts', to: 'ACCEPTED' },  // signed-in user's role (the host filters)
+      ],
+    },
   },
 })
 publishAiContext(null)                       // nothing to say (clears)
@@ -246,6 +252,14 @@ current truth a late-hydrating panel reads) AND dispatches the
 `oimlsmart:ai-context` window event (live updates to a mounted panel).
 A page that publishes nothing offers This page (named from the document
 title) + A document… + None — no entity in view, no entity chip.
+
+The `machine` facet is the affordance channel (TODO.ai-platform/08): it
+is NEVER a chip and never renders — the panel forwards it as structured
+context on the entity declaration so the engine's proposal grammar is
+bounded by the acts the machine actually offers. The host computes the
+set (the model-declared state machine, filtered by the signed-in user's
+role) and re-validates any draft act against it authoritatively; the
+panel's copy is advisory, never a boundary.
 
 The wire shape the panel sends (`context` on `POST /api/ask`) and the
 echo it renders (`context_applied`) are the AI service's contract — the
@@ -292,6 +306,17 @@ is `src/ai/drafts.ts` (`@oimlsmart/site-shell/ai/drafts`, an explicit
   review and confirm it there yourself" — the form's own write path (its
   validation, its gates, its audit, which marks the act AI-prepared) is
   the only commit.
+
+The second act (`api_call`, TODO.ai-platform/09): the service proposes
+one operation out of the host's preference family (the standing grant's
+closed world — the user's own settings writes, never a record act).
+The panel pre-flights the draft to the host on arrival: an active grant
+executes inline and the card only reports ("preference — your standing
+grant covered this"); without a grant the card asks once and the user's
+tap re-dispatches the same draft with `confirmed: true`. The class
+marker on every card is the HOST's declared act class from the ack —
+never the service's claim — and a record-class target is refused
+outright: record acts commit through the platform's own surfaces.
 
 ### Identity and slots
 

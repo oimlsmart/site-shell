@@ -29,6 +29,17 @@
  * panel-side mirror.
  */
 
+/** One act the entity's lifecycle machine offers at the current state
+ *  (TODO.ai-platform/08 — the affordance channel): the machine's own
+ *  action id, the state the act lands the entity on, and the declared
+ *  guard (the caller-supplied computed input the walker requires) when
+ *  the transition declares one. */
+export interface AiActRef {
+  action: string
+  to: string
+  guard?: string
+}
+
 /** The entity a page carries, as the page publishes it. */
 export interface AiEntityRef {
   /** 'certificate' | 'application' | 'report' | 'sample' | … (display) */
@@ -41,6 +52,13 @@ export interface AiEntityRef {
    *  the URN (urn:oiml:pub:r:60-1:2021) or the plain docidentifier */
   doc?: string
   edition?: string
+  /** TODO.ai-platform/08: the machine affordance — the lifecycle
+   *  machine's current state + the acts it offers there FOR THE
+   *  SIGNED-IN USER'S ROLE (the platform filters before publishing).
+   *  Never a user-facing chip: the panel forwards it as structured
+   *  context with the entity declaration so the engine's proposal
+   *  grammar is bounded by what the machine actually offers. */
+  machine?: { state: string; acts: AiActRef[] }
 }
 
 /** What a page publishes: its plain name, and the entity it carries. */
@@ -53,6 +71,19 @@ export interface AiPageContext {
 export const AI_CONTEXT_EVENT = 'oimlsmart:ai-context'
 export const AI_CONTEXT_ATTR = 'data-ai-context'
 
+function cleanActs(acts: unknown): AiActRef[] {
+  if (!Array.isArray(acts)) return []
+  const out: AiActRef[] = []
+  for (const a of acts.slice(0, 24)) {
+    const action = typeof a?.action === 'string' ? a.action.trim().slice(0, 60) : ''
+    const to = typeof a?.to === 'string' ? a.to.trim().slice(0, 60) : ''
+    if (!action || !to) continue
+    const guard = typeof a?.guard === 'string' && a.guard.trim() ? a.guard.trim().slice(0, 60) : undefined
+    out.push({ action, to, ...(guard ? { guard } : {}) })
+  }
+  return out
+}
+
 function cleanEntity(e: AiEntityRef): AiEntityRef | null {
   const label = typeof e?.label === 'string' ? e.label.trim().slice(0, 120) : ''
   const kind = typeof e?.kind === 'string' ? e.kind.trim().slice(0, 40) : ''
@@ -60,7 +91,11 @@ function cleanEntity(e: AiEntityRef): AiEntityRef | null {
   const id = typeof e.id === 'string' && e.id.trim() ? e.id.trim().slice(0, 200) : undefined
   const doc = typeof e.doc === 'string' && e.doc.trim() ? e.doc.trim().slice(0, 80) : undefined
   const edition = typeof e.edition === 'string' && /^\d{4}$/.test(e.edition.trim()) ? e.edition.trim() : undefined
-  return { kind, label, ...(id ? { id } : {}), ...(doc ? { doc } : {}), ...(edition ? { edition } : {}) }
+  // The state is the fact; the acts may be EMPTY (the signed-in user's
+  // role fires nothing here — the engine still learns the state).
+  const state = typeof e.machine?.state === 'string' ? e.machine.state.trim().slice(0, 60) : ''
+  const machine = state ? { state, acts: cleanActs(e.machine?.acts) } : undefined
+  return { kind, label, ...(id ? { id } : {}), ...(doc ? { doc } : {}), ...(edition ? { edition } : {}), ...(machine ? { machine } : {}) }
 }
 
 function cleanContext(ctx: AiPageContext | null): AiPageContext | null {
@@ -105,6 +140,12 @@ export interface AiAskContext {
   route?: string
   doc?: string
   edition?: string
+  /** TODO.ai-platform/08: the entity kind's machine affordance — the
+   *  state + the offered acts the page published (already role-filtered
+   *  by the platform). The engine's proposal grammar is bounded by this
+   *  set; the platform re-validates any draft against it authoritatively
+   *  (the panel's copy is advisory, never a boundary). */
+  machine?: { state: string; acts: AiActRef[] }
 }
 
 /** The account context's live-read echo (TODO.ai-platform/03): when the

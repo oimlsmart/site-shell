@@ -61,7 +61,7 @@ import {
   type AiContextApplied,
   type AiPageContext,
 } from '../ai/context'
-import { dispatchAiDraft, draftFieldLines, type AiDraft } from '../ai/drafts'
+import { dispatchAiDraft, draftFieldLines, apiCallLines, type AiDraft, type AiApiCallDraft, type AnyAiDraft } from '../ai/drafts'
 import { renderMarkdownLite } from '../ai/markdown'
 // The AI service origin is injected: the apiBase prop is REQUIRED — the
 // package ships no service origins (SiteHeader resolves it from the
@@ -174,9 +174,18 @@ const pendingApplied = ref<AiContextApplied | undefined>(undefined)
 /** the live records for the answer currently streaming (TODO.ai-platform/03) */
 const pendingRecords = ref<AiLiveRecord[] | undefined>(undefined)
 /** the prepared act for the answer currently streaming (TODO.ai-platform/04) */
-const pendingDraftAct = ref<AiDraft | undefined>(undefined)
-/** per-message draft hand-off state: the card's own honest status */
-const draftHandoff = ref<Record<string, 'sending' | 'opened' | 'refused'>>({})
+const pendingDraftAct = ref<AnyAiDraft | undefined>(undefined)
+/** per-message draft hand-off state: the card's own honest status. The
+ *  api_call act (TODO.ai-platform/09) adds its own arc — the pre-flight
+ *  checks the standing grant ('checking'), an active grant executes
+ *  inline ('executed' via grant), otherwise the card waits on the
+ *  user's tap ('confirm'). */
+type DraftHandoffState = 'sending' | 'opened' | 'refused' | 'checking' | 'confirm' | 'executed'
+const draftHandoff = ref<Record<string, DraftHandoffState>>({})
+/** per-message execution detail: the authority that signed (the grant
+ *  or the user's tap) and the HOST-declared act class — the card's
+ *  marker reads these, never the service's say-so */
+const draftExec = ref<Record<string, { via?: 'grant' | 'confirmation'; act_class?: 'record' | 'preference' }>>({})
 
 /** Hand the draft to the host's real form (TODO.ai-platform/04): the DOM
  *  seam carries it (never a write API); the card reports the host's ack
@@ -198,11 +207,55 @@ async function openDraftInForm(messageId: string, draft: AiDraft) {
   }
 }
 
-/** The card's honest footer per state (the refusal names the way out). */
-function draftHandoffNote(state?: 'sending' | 'opened' | 'refused'): string {
+/** The card's honest footer per state (the refusal names the way out).
+ *  The message-draft card only ever holds sending/opened/refused; the
+ *  api_call arc's own states render their marker through apiCallNote. */
+function draftHandoffNote(state?: DraftHandoffState): string {
   if (state === 'sending') return 'Handing the draft to the form…'
   if (state === 'opened') return 'Opened in the form — review every field; only your own confirmation submits.'
   if (state === 'refused') return 'This page could not open the draft — open the platform’s application wizard and ask again from there.'
+  return ''
+}
+
+/** Run an api_call draft (TODO.ai-platform/09): the pre-flight
+ *  (confirmed = false) asks the host whether the standing grant covers
+ *  the act — an active grant executes inline and the card never asks;
+ *  otherwise the card waits on the user's tap, which re-dispatches the
+ *  same draft confirmed. A record-class target or an unknown operation
+ *  is refused outright (the host's reason, never retried). */
+async function runApiCallDraft(messageId: string, draft: AiApiCallDraft, confirmed: boolean) {
+  if (['checking', 'sending', 'executed'].includes(draftHandoff.value[messageId] ?? '')) return
+  draftHandoff.value = { ...draftHandoff.value, [messageId]: confirmed ? 'sending' : 'checking' }
+  const ack = await dispatchAiDraft(confirmed ? { ...draft, confirmed: true } : draft)
+  if (ack.executed) {
+    draftHandoff.value = { ...draftHandoff.value, [messageId]: 'executed' }
+    draftExec.value = { ...draftExec.value, [messageId]: { via: ack.via, act_class: ack.act_class } }
+    statusLine.value = ack.via === 'grant' ? 'Done — your standing grant covered it.' : 'Done — your confirmation ran it.'
+  } else if (!confirmed && ack.reason === 'confirmation_required') {
+    draftHandoff.value = { ...draftHandoff.value, [messageId]: 'confirm' }
+    draftExec.value = { ...draftExec.value, [messageId]: { act_class: ack.act_class } }
+  } else {
+    draftHandoff.value = { ...draftHandoff.value, [messageId]: 'refused' }
+    draftExec.value = { ...draftExec.value, [messageId]: { act_class: ack.act_class } }
+    statusLine.value = ack.reason && ack.reason !== 'no-host' ? `The platform refused the action — ${ack.reason}` : 'This page could not run the action.'
+  }
+}
+
+/** The api_call card's marker line (TODO.ai-platform/09's two markers +
+ *  the in-flight states) — the class and the authority are the HOST's
+ *  ack, never the draft's claim. */
+function apiCallNote(messageId: string): string {
+  const state = draftHandoff.value[messageId]
+  const exec = draftExec.value[messageId]
+  if (state === 'checking') return 'Checking your standing grant…'
+  if (state === 'sending') return 'Running it…'
+  if (state === 'executed') {
+    return exec?.via === 'grant'
+      ? 'Preference act — your standing grant covered this.'
+      : 'Preference act — your confirmation ran it.'
+  }
+  if (state === 'confirm') return 'Preference act — your confirmation runs it.'
+  if (state === 'refused') return 'The platform refused this action.'
   return ''
 }
 
@@ -265,6 +318,9 @@ function currentAskContext(): AiAskContext | undefined {
       route: window.location.pathname,
       ...(e.doc ? { doc: e.doc } : {}),
       ...(e.edition ? { edition: e.edition } : {}),
+      // TODO.ai-platform/08: the machine affordance rides the entity
+      // declaration — never a chip, never user-facing prose.
+      ...(e.machine ? { machine: e.machine } : {}),
     }
   }
   if (chip.value === 'document' && docPick.value.trim()) {
@@ -554,6 +610,11 @@ async function send(text: string) {
             at: Date.now(),
           }
           messages.value = [...messages.value, answer]
+          // the api_call act's pre-flight (TODO.ai-platform/09): ask the
+          // host whether the standing grant covers the act — an active
+          // grant executes inline; otherwise the card renders for the
+          // user's own tap
+          if (answer.draft?.act === 'api_call') void runApiCallDraft(answer.id, answer.draft, false)
           if (session.value) {
             void appendMessage(props.apiBase, session.value.token, convId, {
               role: 'assistant',
@@ -816,7 +877,7 @@ onBeforeUnmount(() => {
                    click there. Ephemeral: never persisted with the
                    conversation (a resumed session keeps the words, not a
                    stale draft). -->
-              <div v-if="props.draftActs && m.draft" class="ai-draft" :data-draft-act="m.draft.act">
+              <div v-if="props.draftActs && m.draft?.act === 'application_prefill'" class="ai-draft" :data-draft-act="m.draft.act">
                 <p class="ai-draft-title">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
@@ -833,14 +894,39 @@ onBeforeUnmount(() => {
                   Prepared from your words only. It opens in the real form with every field editable —
                   nothing is submitted until you review and confirm it there yourself.
                 </p>
+                <p class="ai-draft-class">Record act — your confirmation signs it.</p>
                 <div class="ai-draft-actions">
                   <button
                     type="button"
                     class="ai-draft-open"
                     :disabled="draftHandoff[m.id] === 'sending' || draftHandoff[m.id] === 'opened'"
-                    @click="openDraftInForm(m.id, m.draft!)"
+                    @click="openDraftInForm(m.id, m.draft as AiDraft)"
                   >{{ draftHandoff[m.id] === 'opened' ? 'Opened in the form' : 'Open in the form' }}</button>
                   <span v-if="draftHandoffNote(draftHandoff[m.id])" class="ai-draft-note" role="status">{{ draftHandoffNote(draftHandoff[m.id]) }}</span>
+                </div>
+              </div>
+              <!-- the api_call card (TODO.ai-platform/09): the preference
+                   act's arc — the pre-flight checks the standing grant on
+                   arrival; an active grant executes inline (the card only
+                   reports), otherwise the card asks once. The marker names
+                   the HOST-declared class and the authority that signed. -->
+              <div v-if="props.draftActs && m.draft?.act === 'api_call'" class="ai-draft" :data-draft-act="m.draft.act">
+                <p class="ai-draft-title">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
+                  </svg>
+                  Action prepared by the AI assistant — {{ m.draft.title }}
+                </p>
+                <ul class="ai-draft-fields">
+                  <li v-for="(line, i) in apiCallLines(m.draft)" :key="i">{{ line }}</li>
+                </ul>
+                <p class="ai-draft-class">{{ apiCallNote(m.id) }}</p>
+                <div v-if="draftHandoff[m.id] === 'confirm'" class="ai-draft-actions">
+                  <button
+                    type="button"
+                    class="ai-draft-open"
+                    @click="runApiCallDraft(m.id, m.draft as AiApiCallDraft, true)"
+                  >Run it</button>
                 </div>
               </div>
               <ul v-if="m.citations?.length" class="ai-cites">
@@ -879,12 +965,13 @@ onBeforeUnmount(() => {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
                 </svg>
-                Draft prepared by the AI assistant — {{ pendingDraftAct.title }}
+                {{ pendingDraftAct.act === 'api_call' ? 'Action prepared by the AI assistant' : 'Draft prepared by the AI assistant' }} — {{ pendingDraftAct.title }}
               </p>
               <ul class="ai-draft-fields">
-                <li v-for="(line, i) in draftFieldLines(pendingDraftAct)" :key="i">{{ line }}</li>
+                <li v-for="(line, i) in (pendingDraftAct.act === 'api_call' ? apiCallLines(pendingDraftAct) : draftFieldLines(pendingDraftAct))" :key="i">{{ line }}</li>
               </ul>
-              <p class="ai-draft-honest">It will open in the real form with every field editable — nothing is submitted until you confirm it there yourself.</p>
+              <p v-if="pendingDraftAct.act === 'api_call'" class="ai-draft-honest">The platform checks your standing grant when the answer lands — an active grant runs it, otherwise you confirm it yourself.</p>
+              <p v-else class="ai-draft-honest">It will open in the real form with every field editable — nothing is submitted until you confirm it there yourself.</p>
             </div>
           </div>
           <p v-if="errorText" class="ai-error" role="alert">{{ errorText }}</p>
@@ -1193,6 +1280,7 @@ html.dark .ai-bubble-root {
 .ai-draft-fields { list-style: none; margin: 0.375rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.125rem; font-size: 0.75rem; }
 .ai-draft-dropped { list-style: none; margin: 0.375rem 0 0; padding: 0.375rem 0 0; border-top: 1px dashed var(--ai-rule); display: flex; flex-direction: column; gap: 0.125rem; font-size: 0.6875rem; color: var(--ai-ink-muted); }
 .ai-draft-honest { margin: 0.5rem 0 0; font-size: 0.6875rem; color: var(--ai-ink-muted); }
+.ai-draft-class { margin: 0.375rem 0 0; font-size: 0.6875rem; font-weight: 600; color: var(--ai-ink-muted); letter-spacing: 0.01em; }
 .ai-draft-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
 .ai-draft-open { min-height: 44px; padding: 0 0.875rem; border: none; border-radius: 0.5rem; background: var(--ai-accent); color: var(--ai-accent-ink); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 .ai-draft-open:disabled { opacity: 0.55; cursor: default; }
