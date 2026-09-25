@@ -204,6 +204,17 @@ is `src/ai/drafts.ts` (`@oimlsmart/site-shell/ai/drafts`, an explicit
   validation, its gates, its audit, which marks the act AI-prepared) is
   the only commit.
 
+The second act (`api_call`, TODO.ai-platform/09): the service proposes
+one operation out of the host's preference family (the standing grant's
+closed world — the user's own settings writes, never a record act).
+The panel pre-flights the draft to the host on arrival: an active grant
+executes inline and the card only reports ("preference — your standing
+grant covered this"); without a grant the card asks once and the user's
+tap re-dispatches the same draft with `confirmed: true`. The class
+marker on every card is the HOST's declared act class from the ack —
+never the service's claim — and a record-class target is refused
+outright: record acts commit through the platform's own surfaces.
+
 ### Brand overrides
 
 Brand identity resolves in exactly one place. Pass any of
