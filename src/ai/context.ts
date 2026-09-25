@@ -71,8 +71,8 @@ export interface AiPageContext {
 export const AI_CONTEXT_EVENT = 'oimlsmart:ai-context'
 export const AI_CONTEXT_ATTR = 'data-ai-context'
 
-function cleanActs(acts: unknown): AiActRef[] | undefined {
-  if (!Array.isArray(acts)) return undefined
+function cleanActs(acts: unknown): AiActRef[] {
+  if (!Array.isArray(acts)) return []
   const out: AiActRef[] = []
   for (const a of acts.slice(0, 24)) {
     const action = typeof a?.action === 'string' ? a.action.trim().slice(0, 60) : ''
@@ -81,7 +81,7 @@ function cleanActs(acts: unknown): AiActRef[] | undefined {
     const guard = typeof a?.guard === 'string' && a.guard.trim() ? a.guard.trim().slice(0, 60) : undefined
     out.push({ action, to, ...(guard ? { guard } : {}) })
   }
-  return out.length ? out : undefined
+  return out
 }
 
 function cleanEntity(e: AiEntityRef): AiEntityRef | null {
@@ -91,9 +91,10 @@ function cleanEntity(e: AiEntityRef): AiEntityRef | null {
   const id = typeof e.id === 'string' && e.id.trim() ? e.id.trim().slice(0, 200) : undefined
   const doc = typeof e.doc === 'string' && e.doc.trim() ? e.doc.trim().slice(0, 80) : undefined
   const edition = typeof e.edition === 'string' && /^\d{4}$/.test(e.edition.trim()) ? e.edition.trim() : undefined
+  // The state is the fact; the acts may be EMPTY (the signed-in user's
+  // role fires nothing here — the engine still learns the state).
   const state = typeof e.machine?.state === 'string' ? e.machine.state.trim().slice(0, 60) : ''
-  const acts = cleanActs(e.machine?.acts)
-  const machine = state && acts ? { state, acts } : undefined
+  const machine = state ? { state, acts: cleanActs(e.machine?.acts) } : undefined
   return { kind, label, ...(id ? { id } : {}), ...(doc ? { doc } : {}), ...(edition ? { edition } : {}), ...(machine ? { machine } : {}) }
 }
 
