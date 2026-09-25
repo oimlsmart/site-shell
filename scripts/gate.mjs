@@ -187,6 +187,20 @@ failures.push(...runThemeGuard(DIST))
   }
 }
 
+// --- the exports surface: the subpaths the consumers' pins resolve.
+// --- The 0.2.1 lesson (smart#417's CI): a squash resolved package.json
+// --- to an older line and the ./components/* wildcard silently dropped
+// --- — the consumer's build failed on "@oimlsmart/site-shell/components/
+// --- AiBubble.vue is not exported". The map is the contract; pin the
+// --- entries the consumers import.
+{
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+  const exp = pkg.exports ?? {}
+  const required = ['.', './components/*', './ai/context', './ai/drafts', './ai/client', './ai/*', './data/*', './tokens.css', './blueprint.css']
+  const missing = required.filter(k => !(k in exp))
+  check(missing.length === 0, `exports surface: consumer subpaths dropped from the map — ${missing.join(', ')}`)
+}
+
 // --- the check-nav completeness helper: a good model passes, a bad one
 // --- fails with named reasons. Offline everywhere — the gate never
 // --- touches the network.
