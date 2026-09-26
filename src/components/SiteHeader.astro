@@ -36,8 +36,12 @@ interface Props {
    *  `draftActs` (TODO.ai-platform/04) renders the draft cards for
    *  AI-prepared acts and hands them to the host's real form. */
   aiAssistant?: boolean | { apiBase?: string; lang?: string; contextChips?: boolean; accountChip?: boolean; draftActs?: boolean }
+  /** The pagefind index base for the SearchBox island — defaults to
+   *  the site root's `/pagefind` inside the component; a project site
+   *  passes its own section index (for example `/cnml/pagefind`). */
+  searchBase?: string
 }
-const { brand, nav, services, hasSignin = false } = Astro.props
+const { brand, nav, services, hasSignin = false, searchBase } = Astro.props
 const path = Astro.url.pathname
 const ai = Astro.props.aiAssistant
 const aiConfig = ai && typeof ai === 'object' ? ai : {}
@@ -84,7 +88,7 @@ const menuItems = nav ? terseItems(nav.items) : []
               data-testid="nav-product-cta"
             >{nav.productCta.label}</a>
           )}
-          <SearchBox client:idle />
+          <SearchBox client:idle base={searchBase} />
           <ThemeToggle client:load />
           {ai && <AiBubble client:load mode="chrome" apiBase={aiBase} lang={aiConfig.lang} contextChips={aiConfig.contextChips} accountChip={aiConfig.accountChip} draftActs={aiConfig.draftActs} />}
         </nav>

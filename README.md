@@ -112,6 +112,18 @@ shapes and the render machinery — never the data:
   line. The Explore column is derived from the nav model; everything
   else is injected.
 
+Two further `Base` props govern the shell's own machinery rather than
+injected content. `externalFonts` (default `true`) controls the Google
+Fonts load in the head — the two preconnects and the stylesheet link;
+a consumer that self-hosts its fonts under a content-security
+guarantee passes `externalFonts={false}`, which removes every
+third-party font reference from the document (a content security
+policy delivered by meta cannot govern content that precedes the meta,
+so the load itself must go). `searchBase` overrides the pagefind index
+base the header's SearchBox island loads; the default is the site
+root's `/pagefind`, and a project site passes its own section index
+(for example `searchBase="/cnml/pagefind"`).
+
 ### Menus are labels only
 
 The header dropdowns and the mobile overlay render each link's label,
@@ -331,6 +343,16 @@ drops its own "Sign in" link. When the brand declares no `signInHref`,
 no sign-in link renders at all.
 `MinisiteNav` exposes a right-aligned slot for nav-local utilities.
 
+One slotting rule applies to every named slot the shell exposes. A
+`slot` attribute placed directly on a Vue island (a component mounted
+with a `client:*` directive) does not behave as it does on a plain
+element: the attribute leaks into the island's serialized hydration
+attributes, and the island fails to hydrate. The slot content must
+carry the attribute on a plain HTML wrapper element instead —
+`<div slot="signin"><AccountChip client:load /></div>`, never
+`<AccountChip client:load slot="signin" />` — so the wrapper takes the
+slot assignment and the island hydrates clean.
+
 ### Tiered pages (SMART / SMART+)
 
 ```astro
@@ -375,7 +397,9 @@ optional `title`, `shortTitle`, and numeric `order`; sections are id
 prefixes like `guides/…`). Declare the collection in your
 `src/content.config.ts` and pass `order`/`labels`/`hrefBase` to match
 your layout. `SearchBox` takes an optional `base` prop if your
-pagefind index is not at the site root (GitHub Pages project sites).
+pagefind index is not at the site root (GitHub Pages project sites);
+when the search mounts through the chrome, `Base`'s `searchBase`
+threads the same override through `SiteHeader` into the island.
 
 ## Theme contract
 
@@ -448,7 +472,11 @@ release workflow run — one definition, no drift:
   header, no footer, no sign-in link — the shell invents nothing); the
   built dropdowns carry labels only (no `desc` reaches any page, not
   even serialized props); the showcase components mount; the a11y legs
-  hold (skip link, labelled landmarks); the theme guard is clean; the
+  hold (skip link, labelled landmarks); the footer carries no muted
+  text and no heading elements; the font opt-out fixture carries no
+  Google Fonts reference while the default pages keep the load; the
+  search-base fixture proves `searchBase` reaches the SearchBox
+  island's serialized props; the theme guard is clean; the
   chrome-export pipeline is proven (export → apply to a foreign page →
   asset rewrite → idempotence); `npm pack --dry-run` carries no preset
   and no content module; and `check-nav` passes a good model against
@@ -460,7 +488,9 @@ release workflow run — one definition, no drift:
   blank page still greps clean and passes color probes); the chrome
   pages carry the header and the swapping logo pair, the config-less
   pages carry none; a rendered dropdown is opened and proven to contain
-  labels only; the mobile dialog opens and Esc-closes; the AI bubble
+  labels only; the footer small text meets the WCAG AA 4.5:1 contrast
+  floor in both schemes (computed from the rendered colors); the mobile
+  dialog opens and Esc-closes; the AI bubble
   answers against a stubbed service; screenshots land in `artifacts/`.
 
 Federation links (header nav, footer columns, the internal banner)

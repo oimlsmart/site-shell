@@ -41,15 +41,18 @@ const bottomBar = !!(footer?.attribution?.length || footer?.legal?.length || foo
             <span class="font-serif text-sm font-semibold">{brand.brandName}</span>
           </div>
           {footer?.description && (
-            <p class="text-xs text-ink-muted leading-relaxed max-w-xs">{footer.description}</p>
+            <p class="text-xs text-ink-soft leading-relaxed max-w-xs">{footer.description}</p>
           )}
         </div>
       )}
 
-      <!-- Quick links — derived from the injected nav -->
+      <!-- Quick links — derived from the injected nav. The column
+           labels are not document-outline headings (on a page whose
+           only heading is the island h1 they would skip levels), so
+           they render as styled paragraphs. -->
       {explore.length > 0 && (
         <div>
-          <h3 class="text-xs font-mono uppercase tracking-wider text-ink-muted mb-3">Explore</h3>
+          <p class="text-xs font-mono uppercase tracking-wider text-ink-soft mb-3">Explore</p>
           <ul class="space-y-2">
             {explore.map(e => (
               <li>
@@ -66,7 +69,7 @@ const bottomBar = !!(footer?.attribution?.length || footer?.legal?.length || foo
       <!-- The consumer's own columns -->
       {footer?.columns?.map(column => (
         <div>
-          <h3 class="text-xs font-mono uppercase tracking-wider text-ink-muted mb-3">{column.heading}</h3>
+          <p class="text-xs font-mono uppercase tracking-wider text-ink-soft mb-3">{column.heading}</p>
           <ul class="space-y-2">
             {column.links.map(link => (
               <li>
@@ -90,7 +93,7 @@ const bottomBar = !!(footer?.attribution?.length || footer?.legal?.length || foo
       <!-- The sites — the injected host list -->
       {footer?.hosts && footer.hosts.length > 0 && (
         <div>
-          <h3 class="text-xs font-mono uppercase tracking-wider text-ink-muted mb-3">The sites</h3>
+          <p class="text-xs font-mono uppercase tracking-wider text-ink-soft mb-3">The sites</p>
           <ul class="space-y-2">
             {footer.hosts.map(host => (
               <li>
@@ -105,7 +108,7 @@ const bottomBar = !!(footer?.attribution?.length || footer?.legal?.length || foo
     {bottomBar && (
       <div class="pt-6 border-t border-rule-soft flex flex-col sm:flex-row items-center justify-between gap-3">
         {footer?.attribution && footer.attribution.length > 0 && (
-          <p class="text-xs text-ink-muted text-center sm:text-left">
+          <p class="text-xs text-ink-soft text-center sm:text-left">
             {footer.attribution.map(segment => typeof segment === 'string'
               ? <span>{segment}</span>
               : <a href={hrefOf(segment)} class="text-accent hover:underline">{segment.label}</a>
@@ -120,7 +123,7 @@ const bottomBar = !!(footer?.attribution?.length || footer?.legal?.length || foo
           </nav>
         )}
         {footer?.copyright && (
-          <p class="text-xs text-ink-muted whitespace-nowrap">{footer.copyright}</p>
+          <p class="text-xs text-ink-soft whitespace-nowrap">{footer.copyright}</p>
         )}
       </div>
     )}

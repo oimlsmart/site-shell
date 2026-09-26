@@ -47,8 +47,19 @@ interface Props {
    *  AI-prepared acts and hands them to the host's real form through the
    *  DOM seam. */
   aiAssistant?: boolean | { apiBase?: string; lang?: string; contextChips?: boolean; accountChip?: boolean; draftActs?: boolean }
+  /** The Google Fonts load (the two preconnects + the stylesheet link)
+   *  — on by default. A consumer that self-hosts its fonts under a
+   *  content-security guarantee passes `false`; the head then carries
+   *  no third-party font reference at all, so a CSP delivered by meta
+   *  (which cannot govern content that precedes it) never has to. */
+  externalFonts?: boolean
+  /** The pagefind index base the header's SearchBox loads — defaults
+   *  to the site root's `/pagefind`. A project site passes its own
+   *  section index (for example `/cnml/pagefind`); threaded through
+   *  SiteHeader into the island. */
+  searchBase?: string
 }
-const { title, description, siteTitle, internal = false, lang = 'en-US', aiAssistant = false } = Astro.props
+const { title, description, siteTitle, internal = false, lang = 'en-US', aiAssistant = false, externalFonts = true, searchBase } = Astro.props
 const { brand, nav, services, footer } = Astro.props
 const resolvedSiteTitle = siteTitle ?? brand?.brandName
 const pageTitle = resolvedSiteTitle ? (title ? `${title} | ${resolvedSiteTitle}` : resolvedSiteTitle) : title
@@ -70,9 +81,13 @@ const FONT_URL =
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <ClientRouter />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href={FONT_URL} />
+  {externalFonts && (
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+      <link rel="stylesheet" href={FONT_URL} />
+    </>
+  )}
   {brand?.themeColor && <meta name="theme-color" content={brand.themeColor} />}
   <meta name="color-scheme" content="light dark" />
   <title>{pageTitle}</title>
@@ -89,6 +104,7 @@ const FONT_URL =
       services={services}
       hasSignin={providesSignin}
       aiAssistant={aiAssistant}
+      searchBase={searchBase}
     >
       <!-- Forwarded only when the consumer mounted real slot content (an
            account chip); SiteHeader renders the brand's own sign-in link
