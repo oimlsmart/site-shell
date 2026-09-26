@@ -346,7 +346,10 @@ export interface MeResponse {
   tier: 'member' | 'anon'
 }
 
-export async function fetchMe(apiBase: string, token: string): Promise<MeResponse | null> {
+/** The session check. A null token probes tokenless — the same-origin
+ *  posture (apiBase ''), where the host app answers /auth/me from its
+ *  OWN session cookie and no bearer ever lives in the browser. */
+export async function fetchMe(apiBase: string, token: string | null): Promise<MeResponse | null> {
   try {
     const res = await fetch(`${apiBase}/auth/me`, { headers: authHeaders(token) })
     if (!res.ok) return null
