@@ -321,7 +321,7 @@ try {
     await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
     await pg.waitForTimeout(400) // the island hydrates
 
-    const launcher = pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first()
+    const launcher = pg.getByRole('button', { name: 'Open Ommisa, the OIML SMART assistant' }).first()
     expect(await launcher.isVisible(), 'the launcher is visible on the flagged page (desktop: the header icon)')
     const box = await launcher.boundingBox()
     expect(!!box && box.width >= 44 && box.height >= 44, `the launcher honors the 44px touch floor (${box ? `${Math.round(box.width)}×${Math.round(box.height)}` : 'no box'})`)
@@ -459,7 +459,7 @@ try {
     await pg.getByRole('button', { name: 'Send' }).click()
     const draftCard = panel.locator('.ai-draft[data-draft-act="application_prefill"]')
     expect(await draftCard.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false), 'the draft card renders for the draft answer')
-    expect(await draftCard.getByText('Draft prepared by the AI assistant — New OIML R 60:2021 application').isVisible().catch(() => false), 'the card is honestly marked as AI-prepared')
+    expect(await draftCard.getByText('Draft prepared by Ommisa — New OIML R 60:2021 application').isVisible().catch(() => false), 'the card is honestly marked as AI-prepared')
     expect(await draftCard.getByText('the Recommendation: OIML R 60:2021').isVisible().catch(() => false), 'the card lists the Recommendation field')
     expect(await draftCard.getByText('the model designation: LC-500').isVisible().catch(() => false), 'the card lists the stated designation')
     expect(await draftCard.getByText(/Left out — description \(“rated for 500 kg”\)/).isVisible().catch(() => false), 'the card names the dropped value + why')
@@ -499,7 +499,7 @@ try {
     const pg = await ctx.newPage()
     await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
     await pg.waitForTimeout(400)
-    await pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first().click()
+    await pg.getByRole('button', { name: 'Open Ommisa, the OIML SMART assistant' }).first().click()
     const panel = pg.locator('#ai-bubble-panel')
     const opened = await panel.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
     if (!opened) failures.push('bubble dark: the panel did not open')
@@ -520,7 +520,7 @@ try {
     const pg = await ctx.newPage()
     await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
     await pg.waitForTimeout(400)
-    await pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first().click()
+    await pg.getByRole('button', { name: 'Open Ommisa, the OIML SMART assistant' }).first().click()
     if (!(await pg.locator('#ai-bubble-panel').waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)))
       failures.push('bubble vt: the panel did not open before navigation')
     // an in-origin anchor click (the federation links are front-door
@@ -552,7 +552,7 @@ try {
     const pg = await ctx.newPage()
     await pg.goto(`${BASE}/bubble`, { waitUntil: 'load' })
     await pg.waitForTimeout(400)
-    const fab = pg.getByRole('button', { name: 'Open the OIML SMART AI assistant' }).first()
+    const fab = pg.getByRole('button', { name: 'Open Ommisa, the OIML SMART assistant' }).first()
     if (!(await fab.isVisible().catch(() => false))) failures.push('bubble mobile: the floating launcher is not visible')
     else {
       await fab.click()
