@@ -3,7 +3,7 @@
 The OIML SMART house shell — the chrome machinery every OIML SMART site
 mounts: the federation header and footer frames, nav rendering, the
 component-local minisite nav, the logo hero, the docs layout, the theme
-runtime, the design tokens, and the AI assistant island. The package
+runtime, the design tokens, and the Ommisa assistant island. The package
 ships machinery only: it carries no site content of its own. Every site
 injects its nav model, brand, services registry, and footer content
 through the typed config contract in `src/config/`, and the shell
@@ -104,7 +104,7 @@ shapes and the render machinery — never the data:
   `signInHref` renders no sign-in link in the header or the mobile
   overlay; there is no default target.
 - **`ServicesRegistry`** (`services`) — the service origins the
-  consumer defines. The AI assistant reads `services.ai` when its flag
+  consumer defines. Ommisa reads `services.ai` when its flag
   carries no explicit `apiBase`; enabling the assistant without any
   origin is a build error, never a silent default.
 - **`FooterConfig`** (`footer`) — description, link columns, the hosts
@@ -152,9 +152,9 @@ appears. It exists so the www repo can adopt the files verbatim in its
 own migration, and so this repo's test fixture can inject them and
 prove the injection surface end to end.
 
-### The AI assistant bubble (opt-in)
+### The Ommisa assistant bubble (opt-in)
 
-The platform's AI assistant (ai.oimlsmart.org) embeds as ONE component —
+Ommisa — the platform's assistant (ai.oimlsmart.org) — embeds as ONE component —
 never a per-app copy. Off by default; a property opts in per page shell:
 
 ```astro

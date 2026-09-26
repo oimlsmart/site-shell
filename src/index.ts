@@ -12,7 +12,7 @@ export { default as DocsSidebar } from './components/DocsSidebar.astro'
 export { default as InternalBanner } from './components/InternalBanner.astro'
 export { default as TierToggle } from './components/TierToggle.astro'
 export { default as ComponentLogo } from './components/ComponentLogo.astro'
-// The AI assistant bubble (TODO.ai-platform/01) — flag-gated per
+// The Ommisa assistant bubble (TODO.ai-platform/01) — flag-gated per
 // property via Base/SiteHeader's `aiAssistant` prop; the standalone
 // mount (a property with its own chrome) imports this component
 // directly with mode="standalone" and its own apiBase.

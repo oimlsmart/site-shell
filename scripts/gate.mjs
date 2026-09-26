@@ -102,10 +102,10 @@ for (const desc of navDescs) {
   // injected services registry; every other fixture page is flagless
   // and must NOT carry it.
   const bubbleHtml = read('bubble', 'index.html')
-  check(bubbleHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher compiled into the bubble fixture page')
+  check(bubbleHtml.includes('aria-label="Open Ommisa, the OIML SMART assistant"'), 'the AI launcher compiled into the bubble fixture page')
   check(bubbleHtml.includes('ai-stub.invalid'), 'the bubble serialized the injected service origin (services.ai read)')
-  check(!indexHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher stays OFF by default (the flagless index page)')
-  check(!docsHtml.includes('aria-label="Open the OIML SMART AI assistant"'), 'the AI launcher stays OFF on the flagless docs page')
+  check(!indexHtml.includes('aria-label="Open Ommisa, the OIML SMART assistant"'), 'the AI launcher stays OFF by default (the flagless index page)')
+  check(!docsHtml.includes('aria-label="Open Ommisa, the OIML SMART assistant"'), 'the AI launcher stays OFF on the flagless docs page')
   const standaloneHtml = read('bubble-standalone', 'index.html')
   // the direct mount chunks into a shared index.*.js — the island's opts
   // (name: AiBubble) + the serialized origin are the stable markers

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * AiBubble — the OIML SMART AI assistant in the shared chrome
+ * AiBubble — Ommisa, the OIML SMART assistant, in the shared chrome
  * (TODO.ai-platform/01). ONE component, mounted either by SiteHeader
  * (mode="chrome": the header icon row at lg+, a floating button below)
  * or standalone by a property with its own chrome (mode="standalone":
@@ -639,7 +639,7 @@ async function send(text: string) {
     if (!result.ok) {
       if (result.authExpired) {
         await adoptSession(null)
-        errorText.value = 'The assistant session expired — sign in again to continue as a member.'
+        errorText.value = 'The Ommisa session expired — sign in again to continue as a member.'
       } else {
         errorText.value = result.message
       }
@@ -740,7 +740,7 @@ onBeforeUnmount(() => {
       class="ai-launcher ai-launcher--icon"
       :aria-expanded="open"
       aria-controls="ai-bubble-panel"
-      aria-label="Open the OIML SMART AI assistant"
+      aria-label="Open Ommisa, the OIML SMART assistant"
       @click="togglePanel"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -763,14 +763,14 @@ onBeforeUnmount(() => {
         :style="{ bottom: props.fabBottom }"
         :aria-expanded="open"
         aria-controls="ai-bubble-panel"
-        aria-label="Open the OIML SMART AI assistant"
+        aria-label="Open Ommisa, the OIML SMART assistant"
         @click="togglePanel"
       >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
           <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z" />
         </svg>
-        <span class="ai-fab-label">AI</span>
+        <span class="ai-fab-label">Ommisa</span>
       </button>
 
       <!-- The panel: a card on desktop, a full sheet on small screens. -->
@@ -782,12 +782,12 @@ onBeforeUnmount(() => {
         :class="`ai-bubble--${props.mode}`"
         role="dialog"
         :aria-modal="isSheet"
-        aria-label="OIML SMART AI assistant"
+        aria-label="Ommisa, the OIML SMART assistant"
         @keydown="onPanelKeydown"
       >
       <header class="ai-panel-head">
         <div class="ai-panel-title">
-          <span class="ai-panel-name">OIML SMART AI</span>
+          <span class="ai-panel-name">Ommisa</span>
           <span class="ai-panel-tier">{{ isMember ? `Signed in${accountName ? ` as ${accountName}` : ''}` : 'Anonymous — public corpus' }}</span>
         </div>
         <div class="ai-panel-actions">
@@ -882,7 +882,7 @@ onBeforeUnmount(() => {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
                   </svg>
-                  Draft prepared by the AI assistant — {{ m.draft.title }}
+                  Draft prepared by Ommisa — {{ m.draft.title }}
                 </p>
                 <ul class="ai-draft-fields">
                   <li v-for="(line, i) in draftFieldLines(m.draft)" :key="i">{{ line }}</li>
@@ -915,7 +915,7 @@ onBeforeUnmount(() => {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
                   </svg>
-                  Action prepared by the AI assistant — {{ m.draft.title }}
+                  Action prepared by Ommisa — {{ m.draft.title }}
                 </p>
                 <ul class="ai-draft-fields">
                   <li v-for="(line, i) in apiCallLines(m.draft)" :key="i">{{ line }}</li>
@@ -965,7 +965,7 @@ onBeforeUnmount(() => {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" />
                 </svg>
-                {{ pendingDraftAct.act === 'api_call' ? 'Action prepared by the AI assistant' : 'Draft prepared by the AI assistant' }} — {{ pendingDraftAct.title }}
+                {{ pendingDraftAct.act === 'api_call' ? 'Action prepared by Ommisa' : 'Draft prepared by Ommisa' }} — {{ pendingDraftAct.title }}
               </p>
               <ul class="ai-draft-fields">
                 <li v-for="(line, i) in (pendingDraftAct.act === 'api_call' ? apiCallLines(pendingDraftAct) : draftFieldLines(pendingDraftAct))" :key="i">{{ line }}</li>

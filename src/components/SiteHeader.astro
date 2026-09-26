@@ -20,13 +20,13 @@ interface Props {
   brand?: BrandConfig
   /** The nav model — absent, no menu and no mobile overlay mount. */
   nav?: NavModel
-  /** The service origins; the AI assistant reads `services.ai`. */
+  /** The service origins; Ommisa (the assistant) reads `services.ai`. */
   services?: ServicesRegistry
   /** Whether the consumer mounted real signin-slot content (an account
    *  chip) — Base threads this so the mobile overlay can drop its
    *  logged-out "Sign in" link. */
   hasSignin?: boolean
-  /** The AI assistant bubble (TODO.ai-platform/01) — OFF unless the
+  /** The Ommisa assistant bubble (TODO.ai-platform/01) — OFF unless the
    *  consuming property opts in. `true` mounts it against the injected
    *  services registry's `ai` origin; the object form overrides the
    *  origin (staging) and the answer-language hint. `contextChips`
