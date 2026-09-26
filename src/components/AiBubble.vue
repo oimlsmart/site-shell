@@ -23,6 +23,13 @@
  * Anonymous callers get the public/anonymous tier, honestly marked;
  * their history stays on the device (localStorage), never synced.
  *
+ * The same-origin posture (apiBase ''): the host app serves the whole
+ * surface itself (its server relays upstream) and answers /auth/me
+ * from its OWN session cookie — the bubble probes it tokenless at
+ * mount, the member state engages with no second ceremony, and no
+ * bearer ever lives in the browser. Signing out there is the host's
+ * own sign-out, so the bubble's sign-out affordance hides.
+ *
  * TODO.ai-platform/02 (the `contextChips` prop, default off until the
  * wave's eval legs are green): the opt-in context chips above the
  * composer — This page / This entity (only when the page publishes one)
@@ -419,6 +426,22 @@ async function refreshConversations() {
 
 // ── session ──
 
+/** The same-origin posture (apiBase ''): the host app answers /auth/me
+ *  from its OWN session cookie, so the member state is a tokenless
+ *  probe away — no bearer lives in the browser, no second ceremony.
+ *  The probed session stays in memory (never storeSession): a remount
+ *  re-probes with one cheap same-origin fetch, and the stored-session
+ *  contract keeps its cross-origin meaning. The empty token rides
+ *  authHeaders' null rule — no Authorization header, the relay derives
+ *  the member credential from the cookie server-side. */
+async function probeSameOriginSession(): Promise<boolean> {
+  const me = await fetchMe(props.apiBase, null)
+  if (!me?.authenticated) return false
+  session.value = { token: '', name: me.name ?? me.email, expiresAt: 0 }
+  accountName.value = me.name ?? me.email
+  return true
+}
+
 async function adoptSession(next: AiSession | null) {
   session.value = next
   accountName.value = next?.name ?? null
@@ -442,6 +465,12 @@ async function signIn() {
   try {
     const next = await openBubbleSignIn(props.apiBase)
     if (next) await adoptSession(next)
+    else if (!props.apiBase && (await probeSameOriginSession())) {
+      // The same-origin popup 302'd to the host app's own door: the
+      // user may have signed in there and closed it — re-probe before
+      // settling back to anonymous.
+      await refreshConversations()
+    }
   } finally {
     signingIn.value = false
   }
@@ -718,7 +747,12 @@ onMounted(async () => {
   window.addEventListener(AI_CONTEXT_EVENT, onContextEvent)
   const stored = loadStoredSession(props.apiBase)
   if (stored) await adoptSession(stored)
-  else await refreshConversations()
+  else {
+    // The same-origin posture: the host app's session IS the
+    // assistant's — probe it tokenless before settling anonymous.
+    if (!props.apiBase) await probeSameOriginSession()
+    await refreshConversations()
+  }
 })
 onBeforeUnmount(() => {
   abort?.abort()
@@ -816,7 +850,12 @@ onBeforeUnmount(() => {
         <div class="ai-account">
           <template v-if="isMember">
             <p class="ai-account-line">Signed in{{ accountName ? ` as ${accountName}` : '' }} — conversations sync to your OIML SMART account.</p>
-            <button type="button" class="ai-btn ai-btn--ghost" @click="signOut">Sign out of the assistant</button>
+            <!-- Cross-origin only: in the same-origin posture the
+                 assistant's session IS the host app's — signing out of
+                 the assistant alone would be a lie (the cookie keeps
+                 answering member-tier, the next mount re-probes). The
+                 one sign-out is the platform's. -->
+            <button v-if="props.apiBase" type="button" class="ai-btn ai-btn--ghost" @click="signOut">Sign out of the assistant</button>
           </template>
           <template v-else>
             <p class="ai-account-line">Anonymous — answers come from the public OIML corpus; conversations stay on this device.</p>
