@@ -1,0 +1,19 @@
+---
+/**
+ * The self-hosted-fonts fixture — Base with externalFonts={false}.
+ * The head must carry NO third-party font reference (no preconnect, no
+ * stylesheet link): a consumer under a content-security guarantee
+ * delivered by meta cannot govern content that precedes the meta, so
+ * the opt-out removes the load outright. The default pages keep the
+ * Google Fonts load (back-compat), which the gate asserts on index.
+ */
+import { Base } from '@oimlsmart/site-shell'
+import { BRAND, NAV_MODEL, FOOTER, SERVICES } from '../config.mjs'
+import '../styles/app.css'
+---
+
+<Base title="Fonts off" description="The self-hosted-fonts fixture page." brand={BRAND} nav={NAV_MODEL} services={SERVICES} footer={FOOTER} externalFonts={false}>
+  <main class="max-w-3xl mx-auto px-6 py-16">
+    <p class="text-ink-soft">The font load is opted out on this page; the gate greps the head for it.</p>
+  </main>
+</Base>

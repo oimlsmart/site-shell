@@ -132,6 +132,43 @@ try {
       failures.push(`${pageName}: light and dark screenshots are byte-identical — the color scheme is not visually applied`)
   }
 
+  // The footer's small text must meet WCAG AA (4.5:1) against the
+  // footer background in BOTH schemes — the ink-muted / bg-paper-deep
+  // pairing measured ~3.3:1 in the light scheme (cnml#77), so the
+  // ratio is computed from the rendered colors, never grepped.
+  for (const scheme of ['light', 'dark']) {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    await ctx.addInitScript(`
+      localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, ${JSON.stringify(scheme)});
+      document.documentElement.classList.toggle(${JSON.stringify(THEME_CLASS)}, ${scheme === 'dark'});
+    `)
+    const pg = await ctx.newPage()
+    await pg.goto(`${BASE}/`, { waitUntil: 'load' })
+    const r = await pg.evaluate(() => {
+      const footer = document.querySelector('footer')
+      if (!footer) return { footer: false }
+      // The worst case: the small legal/description text (the pairing
+      // that failed AA), never the brand name's full-ink span.
+      const text = footer.querySelector('p.text-xs')
+      if (!text) return { footer: true, ratio: null }
+      const channel = (v) => {
+        const s = v / 255
+        return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+      }
+      const luminance = (rgb) => {
+        const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).map(Number)
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+      }
+      const fg = luminance(getComputedStyle(text).color)
+      const bg = luminance(getComputedStyle(footer).backgroundColor)
+      return { footer: true, ratio: (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05) }
+    })
+    if (!r.footer) failures.push(`footer contrast ${scheme}: no footer on the index page`)
+    else if (r.ratio === null) failures.push(`footer contrast ${scheme}: no small-text element (p.text-xs) found in the footer`)
+    else if (r.ratio < 4.5) failures.push(`footer contrast ${scheme}: ${r.ratio.toFixed(2)}:1 — below the WCAG AA 4.5:1 floor for small text`)
+    await ctx.close()
+  }
+
   // The mobile overlay must behave as a dialog: semantics, Esc, focus.
   {
     const ctx = await browser.newContext({ viewport: { width: 375, height: 700 } })

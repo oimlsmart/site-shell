@@ -79,6 +79,36 @@ check(showcaseHtml.includes('component-logo'), 'ComponentLogo mounted on the sho
 check(showcaseHtml.includes('DRAFT'), 'the internal banner mounted on the showcase page (<Base internal>)')
 check(showcaseHtml.includes('account-chip') && showcaseHtml.includes('account-avatar'), 'the signin slot threads the account chip into the header')
 
+// --- the footer markup shape (cnml#77 + sst#14): the small footer
+// --- text pairs ink-soft (AA on bg-paper-deep — ink-muted measured
+// --- ~3.3:1 in the light scheme), and the column labels are not
+// --- document-outline headings (an h3 skips levels on h1-only pages).
+{
+  const footerHtml = indexHtml.slice(indexHtml.indexOf('<footer'))
+  check(footerHtml.length > 0, 'the footer rendered on the index page')
+  check(!footerHtml.includes('text-ink-muted'), 'the footer pairs no ink-muted text (fails WCAG AA on bg-paper-deep)')
+  check(!/<h[1-6][\s>]/.test(footerHtml), 'the footer carries no heading elements (the column labels are styled paragraphs)')
+}
+
+// --- the font-load opt-out: externalFonts={false} removes every
+// --- third-party font reference; the default pages keep the load.
+{
+  const fontsOffHtml = read('fonts-off', 'index.html')
+  check(!fontsOffHtml.includes('fonts.googleapis.com') && !fontsOffHtml.includes('fonts.gstatic.com'), 'externalFonts={false}: no Google Fonts reference in the head')
+  check(fontsOffHtml.includes('site-nav'), 'externalFonts={false}: the chrome still compiles on the opted-out page')
+  check(indexHtml.includes('fonts.googleapis.com'), 'the default pages keep the Google Fonts load (back-compat)')
+}
+
+// --- the SearchBox base threading: searchBase reaches the island's
+// --- serialized props; the default pages keep the root /pagefind base
+// --- (the component's own default, never serialized).
+{
+  const searchBaseHtml = read('search-base', 'index.html')
+  check(searchBaseHtml.includes('SearchBox'), 'the SearchBox island compiled on the search-base page')
+  check(searchBaseHtml.includes('/cnml/pagefind'), 'searchBase threaded into the SearchBox island (the section index, not the host root)')
+  check(!indexHtml.includes('/cnml/pagefind'), 'the default pages keep the root-relative /pagefind base')
+}
+
 // --- the config-less page: no injected config, no chrome ---
 check(!bareHtml.includes('site-nav'), 'the config-less page renders NO header (the shell invents no chrome)')
 check(!bareHtml.includes('<footer'), 'the config-less page renders NO footer')
@@ -247,4 +277,4 @@ if (failures.length) {
   for (const f of failures) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log('gate passed: injected chrome + showcase compiled, config-less page stays bare, menus carry labels only, brand threaded, theme guard clean, chrome pipeline proven, tarball carries machinery only, check-nav proven both ways')
+console.log('gate passed: injected chrome + showcase compiled, config-less page stays bare, menus carry labels only, brand threaded, footer markup AA + outline-clean, font opt-out proven both ways, searchBase threaded, theme guard clean, chrome pipeline proven, tarball carries machinery only, check-nav proven both ways')

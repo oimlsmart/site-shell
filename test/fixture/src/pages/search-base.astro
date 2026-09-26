@@ -1,0 +1,18 @@
+---
+/**
+ * The section-search fixture — Base with searchBase pointing at the
+ * section's own pagefind index (/cnml/pagefind), the way a project
+ * site (GitHub Pages base path) mounts it. The gate proves the base
+ * reaches the serialized SearchBox island props, and that the default
+ * pages keep the root-relative /pagefind base.
+ */
+import { Base } from '@oimlsmart/site-shell'
+import { BRAND, NAV_MODEL, FOOTER, SERVICES } from '../config.mjs'
+import '../styles/app.css'
+---
+
+<Base title="Search base" description="The section-search fixture page." brand={BRAND} nav={NAV_MODEL} services={SERVICES} footer={FOOTER} searchBase="/cnml/pagefind">
+  <main class="max-w-3xl mx-auto px-6 py-16">
+    <p class="text-ink-soft">The header search points at the section index on this page.</p>
+  </main>
+</Base>
