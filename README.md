@@ -220,8 +220,12 @@ The contract (the honest postures the component keeps):
 Opt-in per property (`aiAssistant={{ contextChips: true }}` — or the
 `contextChips` prop on a direct `AiBubble` mount), and opt-in per
 message INSIDE the panel: the chips above the composer present what is
-available — **This page** (the route's plain name), **This entity**
-(only when the page carries one; the chip names it), **A document…**
+available — **This page** (the route's plain name; when the page
+declares its subjects, the declaration attaches them — the primary
+subject's publication scopes retrieval and the label names every
+subject), **one chip per declared subject** (only when the page
+declares its subject matter; a document subject reads as its own name,
+every other subject as "This <kind> — <label>"), **A document…**
 (a small picker for a corpus reference), **None** (the default; the
 panel opens there). Tap includes, tap drops, changeable per message
 mid-session; nothing the user didn't pick ever rides a message. Every
@@ -229,6 +233,14 @@ answer carries the honest context line ("context: this certificate
 R60/2021-A-EX1-26.01" / "context: none (general corpus)"), computed from
 the service's `context_applied` echo — never from what the panel wished
 to send.
+
+**The thread survives the remount**: the panel's memory dies with its
+component instance (a boundary navigation full-loads the page; a host
+may unmount the launcher), so the ACTIVE conversation's id rides
+`sessionStorage` (per tab, per service) and a fresh mount resumes it —
+reopening the bubble shows the thread, never a blank greeting over it.
+The conversation record itself lives where it always did (the service
+for members, `localStorage` for anonymous); the key only points at it.
 
 **The page-context seam** — how a host page tells the panel what it is
 and what it carries — is `src/ai/context.ts`
@@ -239,22 +251,26 @@ the `.ts`-suffixed wildcard form breaks them):
 ```ts
 import { publishAiContext } from '@oimlsmart/site-shell/ai/context'
 
-// on mount + whenever the route or the loaded entity changes:
+// on mount + whenever the route or the loaded records change:
 publishAiContext({
   page: 'the IA console',                    // the route's plain name
-  entity: {                                  // only when the page carries one
-    kind: 'certificate',                     // display kind
-    label: 'R60/2021-A-EX1-26.01',           // the display label
-    id: '…',                                 // the platform's entity id
-    doc: 'urn:oiml:pub:r:60-1:2021',         // the governing publication, when known
-    edition: '2021',
-    machine: {                               // the affordance channel (TODO.ai-platform/08) —
-      state: 'UNDER_REVIEW',                 //   the lifecycle machine's current state
-      acts: [                                //   + the acts offered there for the
-        { action: 'ia_accepts', to: 'ACCEPTED' },  // signed-in user's role (the host filters)
-      ],
+  subjects: [                                // the page's declared subject matter — one chip each
+    { kind: 'certificate',                   // display kind
+      label: 'R60/2021-A-EX1-26.01',         // the display label
+      id: '…',                               // the platform's entity id
+      doc: 'urn:oiml:pub:r:60-1:2021',       // the governing publication, when known
+      edition: '2021',
+      machine: {                             // the affordance channel (TODO.ai-platform/08) —
+        state: 'UNDER_REVIEW',               //   the lifecycle machine's current state
+        acts: [                              //   + the acts offered there for the
+          { action: 'ia_accepts', to: 'ACCEPTED' },  // signed-in user's role (the host filters)
+        ],
+      },
     },
-  },
+    { kind: 'test request', label: 'TR-2026-14', doc: 'urn:oiml:pub:r:60:2021' },
+    { kind: 'document', label: 'R 60', doc: 'urn:oiml:pub:r:60:2021' },  // a document subject — scopes as a document chip
+  ],
+  // entity: { … } — the legacy singular; still honored, rides as the first subject
 })
 publishAiContext(null)                       // nothing to say (clears)
 ```
@@ -263,7 +279,11 @@ The helper mirrors the payload onto `<html data-ai-context="…">` (the
 current truth a late-hydrating panel reads) AND dispatches the
 `oimlsmart:ai-context` window event (live updates to a mounted panel).
 A page that publishes nothing offers This page (named from the document
-title) + A document… + None — no entity in view, no entity chip.
+title) + A document… + None — no declared subject, no subject chip. A
+page WITH subject matter never presents a bare None row as its only
+truth: its subjects are right there to pick. The publish caps at 8
+subjects (the chip row stays a row, never a wall) and dedupes by
+kind + id (or label).
 
 The `machine` facet is the affordance channel (TODO.ai-platform/08): it
 is NEVER a chip and never renders — the panel forwards it as structured

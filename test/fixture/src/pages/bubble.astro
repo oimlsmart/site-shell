@@ -6,8 +6,9 @@
  * gated like every other export. The index page stays flagless,
  * proving the default is OFF. The context chips (TODO.ai-platform/02)
  * are ON here, and the page publishes its context through the seam
- * (src/ai/context.ts) the way a real property's pages do — a page name
- * plus a carried entity.
+ * (src/ai/context.ts) the way a real property's pages do — a page name,
+ * the legacy entity, and the page's declared subjects (one chip each,
+ * the certificate duplicated on purpose: the publish dedupes).
  */
 import { Base } from '@oimlsmart/site-shell'
 import { BRAND, NAV_MODEL, FOOTER, SERVICES } from '../config.mjs'
@@ -35,5 +36,10 @@ const services = { ...SERVICES, ai: 'https://ai-stub.invalid' }
   publishAiContext({
     page: 'the bubble fixture',
     entity: { kind: 'certificate', label: 'R60/2021-A-EX1-26.01', doc: 'urn:oiml:pub:r:60-1:2021' },
+    subjects: [
+      { kind: 'certificate', label: 'R60/2021-A-EX1-26.01', doc: 'urn:oiml:pub:r:60-1:2021' },
+      { kind: 'test request', label: 'TR-2026-14', doc: 'urn:oiml:pub:r:60:2021' },
+      { kind: 'document', label: 'R 60', doc: 'urn:oiml:pub:r:60:2021' },
+    ],
   })
 </script>

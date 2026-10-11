@@ -32,12 +32,13 @@
  *
  * TODO.ai-platform/02 (the `contextChips` prop, default off until the
  * wave's eval legs are green): the opt-in context chips above the
- * composer — This page / This entity (only when the page publishes one)
- * / A document… / None (the default; the panel opens here). The pages
- * publish their context through src/ai/context.ts (the attribute mirror
- * + the window event — the documented seam). The declaration rides the
- * ask; the service's context_applied echo renders as the honest context
- * line on EVERY answer, so the line never invents a grounding.
+ * composer — This page / one chip per subject the page declares (only
+ * when it declares its subject matter) / A document… / None (the
+ * default; the panel opens here). The pages publish their context
+ * through src/ai/context.ts (the attribute mirror + the window event —
+ * the documented seam). The declaration rides the ask; the service's
+ * context_applied echo renders as the honest context line on EVERY
+ * answer, so the line never invents a grounding.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
@@ -64,8 +65,10 @@ import {
   AI_CONTEXT_EVENT,
   contextLine,
   readPublishedContext,
+  subjectKey,
   type AiAskContext,
   type AiContextApplied,
+  type AiEntityRef,
   type AiPageContext,
 } from '../ai/context'
 import { dispatchAiDraft, draftFieldLines, apiCallLines, type AiDraft, type AiApiCallDraft, type AnyAiDraft } from '../ai/drafts'
@@ -88,7 +91,9 @@ interface Props {
   fabBottom?: string
   /** TODO.ai-platform/02: the opt-in context chips + the honest context
    *  line. Off by default until the wave's eval legs are green — a
-   *  property opts in via its mount flag. */
+   *  property opts in via its mount flag. The chips: This page (which
+   *  attaches the page's declared subjects when it has them), one chip
+   *  per declared subject, A document…, the account chip, None. */
   contextChips?: boolean
   /** TODO.ai-platform/03: the "my account" chip — the member's OWN live
    *  platform data, read by the AI service AS the user through the RFC
@@ -164,15 +169,20 @@ const statusLine = ref('')
  *  server id for members, a stable random local id for anonymous. */
 const memoryId = ref<string | null>(null)
 
-// ── the context chips (TODO.ai-platform/02) ──
+// ── the context chips (TODO.ai-platform/02 + the page-context wave) ──
 // Opt-in, never ambient: the selection defaults to 'none' (the panel
 // opens here) and rides ONE message at a time — sticky for convenience,
 // changeable mid-session, never a session-level lock-in. The page
-// publishes what it is + what it carries through src/ai/context.ts; a
-// page publishing nothing offers This page (named from the document
-// title) + A document… + None. No entity in view → no entity chip.
+// publishes what it is + the subjects it carries through
+// src/ai/context.ts; a page publishing nothing offers This page (named
+// from the document title) + A document… + None. A page WITH subject
+// matter offers one chip per declared subject ("This test request
+// TR-…", "R 60") — never a bare None row as its only truth.
 const published = ref<AiPageContext | null>(null)
-const chip = ref<'none' | 'page' | 'entity' | 'document' | 'account'>('none')
+const chip = ref<'none' | 'page' | 'subject' | 'entity' | 'document' | 'account'>('none')
+/** the selected subject chip's identity (subjectKey) — the chip value
+ * alone says "a subject"; this says which one */
+const selectedSubjectKey = ref('')
 const docPick = ref('')
 const pickerOpen = ref(false)
 const pickerDraft = ref('')
@@ -266,7 +276,12 @@ function apiCallNote(messageId: string): string {
   return ''
 }
 
-const entityRef = computed(() => published.value?.entity ?? null)
+/** The page's declared subjects — the chip row (the publish's subjects
+ * + the legacy singular, already deduped by the context cleaner). */
+const subjects = computed<AiEntityRef[]>(() => published.value?.subjects ?? [])
+/** The legacy singular read — the first subject, or the page's own
+ * entity publish when it carried only that. */
+const entityRef = computed(() => subjects.value[0] ?? published.value?.entity ?? null)
 const pageLabel = computed(
   () =>
     published.value?.page?.trim() ||
@@ -274,19 +289,39 @@ const pageLabel = computed(
     'this page',
 )
 const pageChipLabel = computed(() => `This page — ${pageLabel.value}`)
-const entityChipLabel = computed(() => (entityRef.value ? `This ${entityRef.value.kind} — ${entityRef.value.label}` : ''))
+/** A subject chip's label: a document subject reads as its own name
+ * ("R 60"); every other subject reads "This <kind> — <label>". */
+function subjectChipLabel(e: AiEntityRef): string {
+  return e.kind === 'document' ? e.label : `This ${e.kind} — ${e.label}`
+}
 
-watch(entityRef, (e) => {
-  // the chips degrade honestly: the entity left the view → the selection
-  // can't dangle on an entity that isn't there
-  if (!e && chip.value === 'entity') chip.value = 'none'
+watch(subjects, (list) => {
+  // the chips degrade honestly: a subject that left the view can't stay
+  // selected — the selection drops to none, never dangles
+  if (chip.value === 'subject' && !list.some(e => subjectKey(e) === selectedSubjectKey.value)) {
+    chip.value = 'none'
+    selectedSubjectKey.value = ''
+  }
+  if (!list.length && chip.value === 'entity') chip.value = 'none'
 })
 
 function onContextEvent(e: Event) {
   published.value = ((e as CustomEvent).detail ?? null) as AiPageContext | null
 }
 
-function selectChip(next: 'none' | 'page' | 'entity' | 'document' | 'account') {
+function selectSubject(e: AiEntityRef) {
+  const key = subjectKey(e)
+  if (chip.value === 'subject' && selectedSubjectKey.value === key) {
+    chip.value = 'none' // tap again drops the pick
+    selectedSubjectKey.value = ''
+    return
+  }
+  pickerOpen.value = false
+  chip.value = 'subject'
+  selectedSubjectKey.value = key
+}
+
+function selectChip(next: 'none' | 'page' | 'subject' | 'entity' | 'document' | 'account') {
   if (next === 'document') {
     if (chip.value === 'document') {
       chip.value = 'none' // tap again drops the pick
@@ -298,6 +333,7 @@ function selectChip(next: 'none' | 'page' | 'entity' | 'document' | 'account') {
   }
   pickerOpen.value = false
   chip.value = chip.value === next ? 'none' : next // tap includes, tap drops
+  if (next !== 'subject') selectedSubjectKey.value = ''
 }
 
 function pickDocument() {
@@ -308,6 +344,25 @@ function pickDocument() {
   chip.value = 'document'
 }
 
+/** One subject's declaration — a document subject scopes as a document
+ * chip; every other subject scopes as an entity declaration carrying
+ * its governing publication + machine facet. */
+function subjectDeclaration(e: AiEntityRef): AiAskContext {
+  if (e.kind === 'document') {
+    return { kind: 'document', label: e.label, doc: e.doc ?? e.label, ...(e.edition ? { edition: e.edition } : {}) }
+  }
+  return {
+    kind: 'entity',
+    label: `this ${e.kind} ${e.label}`,
+    route: window.location.pathname,
+    ...(e.doc ? { doc: e.doc } : {}),
+    ...(e.edition ? { edition: e.edition } : {}),
+    // TODO.ai-platform/08: the machine affordance rides the entity
+    // declaration — never a chip, never user-facing prose.
+    ...(e.machine ? { machine: e.machine } : {}),
+  }
+}
+
 /** The declaration for the NEXT message — built at send time so what
  *  rides is what the page publishes at that moment. */
 function currentAskContext(): AiAskContext | undefined {
@@ -316,20 +371,26 @@ function currentAskContext(): AiAskContext | undefined {
   // the honest label rides the declaration; the service reads exactly
   // what the user can see, and the echo says when it did
   if (chip.value === 'account') return { kind: 'account', label: 'my account' }
-  if (chip.value === 'page') return { kind: 'page', label: pageLabel.value, route: window.location.pathname }
-  if (chip.value === 'entity' && entityRef.value) {
-    const e = entityRef.value
+  if (chip.value === 'page') {
+    // "This page" attaches the page's declaration automatically: a page
+    // without subjects rides its plain name; a page WITH subjects rides
+    // the primary subject's entity declaration (its publication scopes
+    // retrieval, its machine facet bounds the acts) with a label that
+    // names every subject — the page's facts travel with the question.
+    const list = subjects.value
+    if (!list.length) return { kind: 'page', label: pageLabel.value, route: window.location.pathname }
+    const primary = list.find(e => e.doc || e.machine) ?? list[0]!
+    const named = list.map(e => e.label).join(' · ')
     return {
-      kind: 'entity',
-      label: `this ${e.kind} ${e.label}`,
-      route: window.location.pathname,
-      ...(e.doc ? { doc: e.doc } : {}),
-      ...(e.edition ? { edition: e.edition } : {}),
-      // TODO.ai-platform/08: the machine affordance rides the entity
-      // declaration — never a chip, never user-facing prose.
-      ...(e.machine ? { machine: e.machine } : {}),
+      ...subjectDeclaration(primary),
+      label: `${pageLabel.value} — ${named}`.slice(0, 120),
     }
   }
+  if (chip.value === 'subject' && selectedSubjectKey.value) {
+    const e = subjects.value.find(s => subjectKey(s) === selectedSubjectKey.value)
+    if (e) return subjectDeclaration(e)
+  }
+  if (chip.value === 'entity' && entityRef.value) return subjectDeclaration(entityRef.value)
   if (chip.value === 'document' && docPick.value.trim()) {
     return { kind: 'document', label: docPick.value.trim(), doc: docPick.value.trim() }
   }
@@ -489,6 +550,38 @@ async function signOut() {
 
 // ── conversations ──
 
+// The thread's survival across remounts (the page-context wave): the
+// panel's memory dies with its component instance (a boundary
+// navigation full-loads, the host may unmount the launcher), so the
+// ACTIVE conversation's id rides sessionStorage — per tab, per service
+// — and a fresh mount resumes it instead of greeting over a thread the
+// user was just reading. The conversation record itself is the store's
+// (the service for members, this device for anonymous); this key only
+// points at it.
+const LAST_ACTIVE_KEY = 'oimlsmart-ai:last-active'
+
+function rememberActive(id: string | null): void {
+  try {
+    if (id) sessionStorage.setItem(LAST_ACTIVE_KEY, JSON.stringify({ apiBase: props.apiBase, id }))
+    else sessionStorage.removeItem(LAST_ACTIVE_KEY)
+  } catch {
+    /* storage denied — the thread simply won't auto-resume */
+  }
+}
+
+function recallActive(): string | null {
+  try {
+    const raw = sessionStorage.getItem(LAST_ACTIVE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed?.apiBase === props.apiBase && typeof parsed.id === 'string' ? parsed.id : null
+  } catch {
+    return null
+  }
+}
+
+watch(activeId, id => rememberActive(id))
+
 function newConversation() {
   activeId.value = null
   memoryId.value = null
@@ -499,26 +592,28 @@ function newConversation() {
   nextTick(() => composer.value?.focus())
 }
 
-async function resumeConversation(id: string) {
+async function resumeConversation(id: string, opts?: { quiet?: boolean }) {
   errorText.value = null
-  if (session.value) {
-    const conv = await getConversation(props.apiBase, session.value.token, id)
-    if (!conv) {
-      errorText.value = 'That conversation could not be loaded.'
-      return
-    }
-    activeId.value = id
-    memoryId.value = id
-    messages.value = conv.messages
-  } else {
+  // A local-* id is this device's record whatever the session state is
+  // now (an anonymous thread resumed after a sign-in stays findable).
+  if (id.startsWith('local-') || !session.value) {
     const local = loadLocalConversations().find((c) => c.id === id)
     if (!local) {
-      errorText.value = 'That conversation could not be loaded.'
+      if (!opts?.quiet) errorText.value = 'That conversation could not be loaded.'
       return
     }
     activeId.value = local.id
     memoryId.value = local.id
     messages.value = local.messages
+  } else {
+    const conv = await getConversation(props.apiBase, session.value.token, id)
+    if (!conv) {
+      if (!opts?.quiet) errorText.value = 'That conversation could not be loaded.'
+      return
+    }
+    activeId.value = id
+    memoryId.value = id
+    messages.value = conv.messages
   }
   followUps.value = []
   view.value = 'chat'
@@ -753,6 +848,14 @@ onMounted(async () => {
     if (!props.apiBase) await probeSameOriginSession()
     await refreshConversations()
   }
+  // The thread's auto-resume (the page-context wave): a remount (a
+  // boundary navigation's full load, the host unmounting the launcher)
+  // reopens where the tab left off — the conversation record came back
+  // with the refresh; this points the panel at it. Quiet by design: a
+  // remembered id the store no longer carries greets fresh, never
+  // errors at the user.
+  const last = recallActive()
+  if (last && conversations.value.some((c) => c.id === last)) await resumeConversation(last, { quiet: true })
 })
 onBeforeUnmount(() => {
   abort?.abort()
@@ -1020,8 +1123,9 @@ onBeforeUnmount(() => {
           <p v-if="quotaLine" class="ai-quota">{{ quotaLine }}</p>
           <!-- the context chips (TODO.ai-platform/02): what is AVAILABLE,
                never pre-selected — tap includes, tap drops, changeable per
-               message. The entity chip exists only when the page carries
-               an entity. None is the default and always offered. -->
+               message. The subject chips exist when the page declares its
+               subject matter (one per subject). None is the default and
+               always offered. -->
           <div v-if="props.contextChips" class="ai-ctx" role="group" aria-label="Answer context — what the answer grounds in">
             <div v-if="pickerOpen" class="ai-docpick">
               <label class="ai-docpick-label" for="ai-docpick-input">Ground the answer in a document</label>
@@ -1042,7 +1146,17 @@ onBeforeUnmount(() => {
             </div>
             <div class="ai-ctxrow">
               <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'page' }" :aria-pressed="chip === 'page'" @click="selectChip('page')">{{ pageChipLabel }}</button>
-              <button v-if="entityRef" type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'entity' }" :aria-pressed="chip === 'entity'" @click="selectChip('entity')">{{ entityChipLabel }}</button>
+              <!-- the page's declared subjects — one chip each, real and
+                   selectable; a document subject reads as its own name -->
+              <button
+                v-for="s in subjects"
+                :key="subjectKey(s)"
+                type="button"
+                class="ai-chip ai-ctxchip"
+                :class="{ 'ai-chip--on': chip === 'subject' && selectedSubjectKey === subjectKey(s) }"
+                :aria-pressed="chip === 'subject' && selectedSubjectKey === subjectKey(s)"
+                @click="selectSubject(s)"
+              >{{ subjectChipLabel(s) }}</button>
               <button type="button" class="ai-chip ai-ctxchip" :class="{ 'ai-chip--on': chip === 'document' }" :aria-pressed="chip === 'document'" @click="selectChip('document')">{{ chip === 'document' && docPick ? `A document — ${docPick}` : 'A document…' }}</button>
               <!-- the "my account" chip (TODO.ai-platform/03): the member's
                    OWN live data, honestly labeled — never offered to the
