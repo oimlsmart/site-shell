@@ -10,9 +10,12 @@
  * The seam, one tiny surface:
  *
  *   - A page (or the shell, which knows the route) calls
- *     `publishAiContext({ page, entity })` — on mount and whenever the
- *     route or the loaded entity changes — and `publishAiContext(null)`
- *     when it has nothing to say. The helper mirrors the payload onto
+ *     `publishAiContext({ page, subjects })` — on mount and whenever the
+ *     route or the loaded records change — and `publishAiContext(null)`
+ *     when it has nothing to say. `subjects` is the page's declared
+ *     subject matter (one chip per subject, the page-context wave);
+ *     `entity` is the legacy singular and rides as the first subject.
+ *     The helper mirrors the payload onto
  *     `<html data-ai-context="…">` (the current truth, readable by a
  *     late-hydrating panel) AND dispatches the `oimlsmart:ai-context`
  *     window event (live updates to a mounted panel). The attribute is
@@ -20,8 +23,10 @@
  *   - The panel reads the attribute when it opens and listens for the
  *     event while mounted. A page that publishes nothing simply offers
  *     "This page" (named from the document title) + "A document…" +
- *     "None" — the entity chip appears only when an entity is published
- *     (the chips degrade honestly: no entity in view → no entity chip).
+ *     "None" — a subject chip appears only when the page declares one
+ *     (the chips degrade honestly: no subject in view → no subject
+ *     chip), and a page WITH subject matter never offers a bare None
+ *     row — its subjects are right there to pick.
  *
  * The wire shape the panel sends to the service (`POST /api/ask`, the
  * `context` field) and the echo it gets back (`context_applied`) are the
@@ -61,11 +66,17 @@ export interface AiEntityRef {
   machine?: { state: string; acts: AiActRef[] }
 }
 
-/** What a page publishes: its plain name, and the entity it carries. */
+/** What a page publishes: its plain name, the subjects it carries (the
+ * page-context wave, TODO.fixes/54 — one chip per subject), and the
+ * legacy singular entity (still honored; the first subject's equal). */
 export interface AiPageContext {
   /** the route's plain name — "the IA console", "the product passport" */
   page?: string
   entity?: AiEntityRef
+  /** the page's declared subject matter — the panel offers one chip per
+   * subject ("This test request TR-…", "R 60"); the first doc-carrying
+   * subject also scopes the "This page" declaration. Capped at 8. */
+  subjects?: AiEntityRef[]
 }
 
 export const AI_CONTEXT_EVENT = 'oimlsmart:ai-context'
@@ -98,12 +109,40 @@ function cleanEntity(e: AiEntityRef): AiEntityRef | null {
   return { kind, label, ...(id ? { id } : {}), ...(doc ? { doc } : {}), ...(edition ? { edition } : {}), ...(machine ? { machine } : {}) }
 }
 
+/** The most subjects a publish may offer (the panel's chip row stays a
+ * row, never a wall). */
+export const AI_SUBJECTS_MAX = 8
+
+/** A subject chip's stable identity — kind + id (or label when the
+ * subject carries no id): re-publication of the same subject keeps the
+ * same key, so a live selection survives a re-publish. */
+export function subjectKey(e: AiEntityRef): string {
+  return `${e.kind}\n${e.id ?? e.label}`
+}
+
 function cleanContext(ctx: AiPageContext | null): AiPageContext | null {
   if (!ctx || typeof ctx !== 'object') return null
   const page = typeof ctx.page === 'string' && ctx.page.trim() ? ctx.page.trim().slice(0, 120) : undefined
   const entity = ctx.entity ? cleanEntity(ctx.entity) : null
-  if (!page && !entity) return null
-  return { ...(page ? { page } : {}), ...(entity ? { entity } : {}) }
+  const seen = new Set<string>()
+  const subjects: AiEntityRef[] = []
+  for (const s of [...(Array.isArray(ctx.subjects) ? ctx.subjects : []), ...(entity ? [entity] : [])]) {
+    const clean = cleanEntity(s)
+    if (!clean) continue
+    const key = subjectKey(clean)
+    if (seen.has(key)) continue
+    seen.add(key)
+    subjects.push(clean)
+    if (subjects.length >= AI_SUBJECTS_MAX) break
+  }
+  if (!page && !subjects.length) return null
+  return {
+    ...(page ? { page } : {}),
+    ...(subjects.length ? { subjects } : {}),
+    // the legacy singular rides as the first subject (older panels read
+    // it; the subjects list is the same truth)
+    ...(subjects.length ? { entity: subjects[0] } : {}),
+  }
 }
 
 /** Publish the page's context: the `<html>` attribute mirror + the window

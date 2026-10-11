@@ -420,6 +420,31 @@ try {
     const lines = await panel.locator('.ai-context-line').allInnerTexts()
     expect(lines.length === 2 && lines[0].includes('none (general corpus)') && lines[1].includes('this certificate'), 'the transcript marks the context per answer across the mid-session change')
 
+    // ── the page-context wave: the declared subject chips ──
+    // One chip per published subject (the deduped certificate rides
+    // once); a document subject reads as its own name. Picking a
+    // subject rides its declaration; "This page" attaches the page's
+    // whole declaration (the primary subject's scope + every subject
+    // named in the label).
+    const chipRequest = panel.getByRole('button', { name: 'This test request — TR-2026-14' })
+    const chipRec = panel.getByRole('button', { name: 'R 60', exact: true })
+    expect(await chipRequest.isVisible().catch(() => false), 'a subject chip renders per declared subject')
+    expect(await chipRec.isVisible().catch(() => false), 'a document subject chip reads as its own name')
+    expect((await panel.getByRole('button', { name: 'This certificate — R60/2021-A-EX1-26.01' }).count()) === 1, 'the subject duplicated with the legacy entity dedupes to one chip')
+    await chipRec.click()
+    expect((await chipRec.getAttribute('aria-pressed')) === 'true', 'the document subject chip selects on tap')
+    await pg.getByLabel('Your question').fill('What does the Recommendation require?')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    await panel.getByText('context: R 60').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+    expect(asked.length === 3 && asked[2].context?.kind === 'document' && asked[2].context?.doc === 'urn:oiml:pub:r:60:2021', 'the document subject declaration rides the ask')
+    await chipPage.click()
+    await pg.getByLabel('Your question').fill('Where does this stand?')
+    await pg.getByRole('button', { name: 'Send' }).click()
+    await pg.waitForTimeout(400)
+    const pageDecl = asked[3]?.context
+    expect(pageDecl?.kind === 'entity' && pageDecl?.doc === 'urn:oiml:pub:r:60-1:2021', 'the This-page declaration scopes to the primary subject\'s publication')
+    expect(pageDecl?.label === 'the bubble fixture — R60/2021-A-EX1-26.01 · TR-2026-14 · R 60', 'the This-page declaration names every declared subject')
+
     // Esc inside the picker closes the PICKER, not the panel: the
     // keydown must not reach the window listener that closes the panel
     await chipDoc.click()
@@ -438,7 +463,7 @@ try {
     await pg.getByLabel('Your question').fill('What does it require?')
     await pg.getByRole('button', { name: 'Send' }).click()
     await panel.getByText(/not in the corpus/).waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
-    expect(asked.length === 3 && asked[2].context?.kind === 'document' && asked[2].context?.doc === 'OIML R 999', 'the document declaration rides the ask')
+    expect(asked.length === 5 && asked[4].context?.kind === 'document' && asked[4].context?.doc === 'OIML R 999', 'the document declaration rides the ask')
     expect(await panel.getByText(/context: OIML R 999 \(not in the corpus — the general corpus answered\)/).isVisible().catch(() => false), 'the honest degradation line renders from the echo note')
 
     // The chips degrade honestly: the page unpublishes the entity → the
@@ -451,6 +476,19 @@ try {
     await pg.keyboard.press('Escape')
     await pg.waitForTimeout(300)
     expect(await panel.isVisible().catch(() => false) === false, 'Escape closes the panel')
+
+    // ── the page-context wave: the thread survives the remount ──
+    // A boundary navigation (or the host unmounting the launcher) is a
+    // FULL load — the panel's memory dies with the instance. The active
+    // conversation's id rides sessionStorage; a fresh mount resumes it,
+    // so reopening the bubble shows the thread, never a blank greeting.
+    await pg.reload()
+    await launcher.click()
+    await pg.waitForTimeout(400)
+    expect(await panel.getByText('What does it require?').isVisible().catch(() => false), 'the thread restores across a full page load')
+    expect(await panel.getByText(/not in the corpus/).isVisible().catch(() => false), 'the restored thread carries its answers')
+    await pg.keyboard.press('Escape')
+    await pg.waitForTimeout(200)
 
     // The member bridge: the sessions view signs in via the popup, then
     // the server conversation list renders.
