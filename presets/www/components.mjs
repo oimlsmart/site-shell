@@ -20,7 +20,7 @@ export const COMPONENTS = [
   // ── SMART tier ──────────────────────────────────────────────────
   {
     name: 'SMART Recommendations',
-    href: '/recs',
+    href: 'https://library.oimlsmart.org',
     desc: 'The published, expert-authored executable Recommendations',
     detail: 'The published, expert-authored executable Recommendations. R 60 is the pilot reference; other Recommendations are modelled for demonstration.',
     logo: 'smart-rec',
